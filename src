@@ -1,0 +1,293 @@
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const scoreEl = document.getElementById('score');
+const gameOverEl = document.getElementById('game-over');
+
+// Game Settings
+const GAME_WIDTH = 800;
+const GAME_HEIGHT = 600;
+canvas.width = GAME_WIDTH;
+canvas.height = GAME_HEIGHT;
+
+// Assets
+const dinoImg = new Image();
+dinoImg.src = 'assets/images/branco.png';
+const bgImg = new Image();
+bgImg.src = 'assets/images/background.png';
+let bgPattern = null;
+
+bgImg.onload = () => {
+    bgPattern = ctx.createPattern(bgImg, 'repeat');
+};
+
+// State
+let gameActive = true;
+let score = 0;
+let lastTime = 0;
+let spawnTimer = 0;
+let difficultyMultiplier = 1;
+
+// Objects
+const player = {
+    x: GAME_WIDTH / 2,
+    y: GAME_HEIGHT / 2,
+    width: 32, // Hitbox size
+    height: 32,
+    speed: 3,
+    targetX: GAME_WIDTH / 2,
+    targetY: GAME_HEIGHT / 2,
+    shootTimer: 0,
+    shootInterval: 1000,
+    // Animation
+    currentFrame: 0,
+    maxFrames: 4,
+    frameTimer: 0,
+    frameInterval: 150, // Speed of animation (ms)
+};
+
+let projectiles = [];
+let enemies = [];
+let particles = [];
+
+// Input
+let isMouseDown = false;
+canvas.addEventListener('mousedown', (e) => {
+    isMouseDown = true;
+    updateTarget(e);
+});
+canvas.addEventListener('mouseup', () => isMouseDown = false);
+canvas.addEventListener('mousemove', (e) => {
+    if (isMouseDown) {
+        updateTarget(e);
+    }
+});
+
+function updateTarget(e) {
+    if (!gameActive) return;
+    const rect = canvas.getBoundingClientRect();
+    player.targetX = e.clientX - rect.left;
+    player.targetY = e.clientY - rect.top;
+}
+
+// Restart
+gameOverEl.addEventListener('click', restartGame);
+
+function restartGame() {
+    gameActive = true;
+    score = 0;
+    difficultyMultiplier = 1;
+    player.x = GAME_WIDTH / 2;
+    player.y = GAME_HEIGHT / 2;
+    player.targetX = GAME_WIDTH / 2;
+    player.targetY = GAME_HEIGHT / 2;
+    projectiles = [];
+    enemies = [];
+    particles = [];
+    gameOverEl.classList.add('hidden');
+    scoreEl.innerText = `Score: ${score}`;
+    requestAnimationFrame(gameLoop);
+}
+
+// Classes/Factories
+class Projectile {
+    constructor(x, y, angle) {
+        this.x = x;
+        this.y = y;
+        this.radius = 4;
+        this.speed = 8;
+        this.vx = Math.cos(angle) * this.speed;
+        this.vy = Math.sin(angle) * this.speed;
+        this.markedForDeletion = false;
+    }
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        if (this.x < 0 || this.x > GAME_WIDTH || this.y < 0 || this.y > GAME_HEIGHT) {
+            this.markedForDeletion = true;
+        }
+    }
+    draw(context) {
+        context.fillStyle = '#ff0';
+        context.beginPath();
+        context.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        context.fill();
+    }
+}
+
+class Enemy {
+    constructor() {
+        // Spawn at random edge
+        if (Math.random() < 0.5) {
+            this.x = Math.random() < 0.5 ? -20 : GAME_WIDTH + 20;
+            this.y = Math.random() * GAME_HEIGHT;
+        } else {
+            this.x = Math.random() * GAME_WIDTH;
+            this.y = Math.random() < 0.5 ? -20 : GAME_HEIGHT + 20;
+        }
+
+        this.speed = 1 + (Math.random() * 0.5 * difficultyMultiplier);
+        this.size = 16;
+        this.markedForDeletion = false;
+        this.angle = 0;
+    }
+    update() {
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        this.angle = Math.atan2(dy, dx);
+        this.x += Math.cos(this.angle) * this.speed;
+        this.y += Math.sin(this.angle) * this.speed;
+    }
+    draw(context) {
+        context.fillStyle = '#0f0'; // Matrix green
+        context.font = '24px "VT323"';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText('@', this.x, this.y);
+    }
+}
+
+// Game Loop
+function gameLoop(timestamp) {
+    if (!gameActive) return;
+
+    let deltaTime = timestamp - lastTime;
+    lastTime = timestamp;
+    if (deltaTime > 100) deltaTime = 100; // Cap large deltas
+
+    ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // Draw Background
+    if (bgPattern) {
+        ctx.fillStyle = bgPattern;
+        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    } else {
+        ctx.fillStyle = '#202020';
+        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    }
+
+    // Update Player Movement
+    const dx = player.targetX - player.x;
+    const dy = player.targetY - player.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist > player.speed) {
+        const angle = Math.atan2(dy, dx);
+        player.x += Math.cos(angle) * player.speed;
+        player.y += Math.sin(angle) * player.speed;
+    } else {
+        player.x = player.targetX;
+        player.y = player.targetY;
+    }
+
+    // Keep Player in Bounds
+    player.x = Math.max(player.width / 2, Math.min(GAME_WIDTH - player.width / 2, player.x));
+    player.y = Math.max(player.height / 2, Math.min(GAME_HEIGHT - player.height / 2, player.y));
+
+    // Auto Shoot
+    player.shootTimer += deltaTime;
+    if (player.shootTimer >= player.shootInterval) {
+        let targetAngle = -Math.PI / 2;
+        if (enemies.length > 0) {
+            let closestDist = Infinity;
+            let closestEnemy = null;
+            enemies.forEach(e => {
+                const edx = e.x - player.x;
+                const edy = e.y - player.y;
+                const dist = edx * edx + edy * edy;
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closestEnemy = e;
+                }
+            });
+            if (closestEnemy) {
+                targetAngle = Math.atan2(closestEnemy.y - player.y, closestEnemy.x - player.x);
+            }
+        }
+        projectiles.push(new Projectile(player.x, player.y, targetAngle));
+        player.shootTimer = 0;
+    }
+
+    // Spawn Enemies
+    spawnTimer += deltaTime;
+    if (spawnTimer > 1000 / difficultyMultiplier) {
+        enemies.push(new Enemy());
+        spawnTimer = 0;
+    }
+    difficultyMultiplier += 0.0001;
+
+    // Update Projectiles
+    projectiles.forEach(p => p.update());
+    projectiles = projectiles.filter(p => !p.markedForDeletion);
+
+    // Update Enemies & Collision
+    enemies.forEach(e => {
+        e.update();
+        const pdx = player.x - e.x;
+        const pdy = player.y - e.y;
+        const pDist = Math.sqrt(pdx * pdx + pdy * pdy);
+        if (pDist < 20) {
+            gameOver();
+        }
+        projectiles.forEach(p => {
+            const edx = p.x - e.x;
+            const edy = p.y - e.y;
+            const eDist = Math.sqrt(edx * edx + edy * edy);
+            if (eDist < 15) {
+                e.markedForDeletion = true;
+                p.markedForDeletion = true;
+                score += 10;
+                scoreEl.innerText = `Score: ${score}`;
+            }
+        });
+    });
+    enemies = enemies.filter(e => !e.markedForDeletion);
+
+    // Draw Entities
+    projectiles.forEach(p => p.draw(ctx));
+
+    // Draw Player
+    if (dinoImg.complete && dinoImg.width > 0) {
+        // Animation Logic
+        player.frameTimer += deltaTime;
+        if (player.frameTimer > player.frameInterval) {
+            player.currentFrame++;
+            if (player.currentFrame >= player.maxFrames) player.currentFrame = 0;
+            player.frameTimer = 0;
+        }
+
+        // 1x4 Grid Logic
+        const cols = 4;
+        const rows = 1;
+        const frameWidth = dinoImg.width / cols;
+        const frameHeight = dinoImg.height / rows;
+
+        const col = player.currentFrame % cols;
+        const row = 0;
+
+        // Fixed render size
+        const renderedSize = 64;
+
+        ctx.drawImage(
+            dinoImg,
+            col * frameWidth, row * frameHeight, frameWidth, frameHeight,
+            player.x - renderedSize / 2, player.y - renderedSize / 2,
+            renderedSize, renderedSize
+        );
+    } else {
+        ctx.fillStyle = '#eb4034';
+        ctx.fillRect(player.x - 16, player.y - 16, 32, 32);
+    }
+
+    enemies.forEach(e => e.draw(ctx));
+
+    requestAnimationFrame(gameLoop);
+}
+
+function gameOver() {
+    gameActive = false;
+    gameOverEl.classList.remove('hidden');
+}
+
+// Start
+requestAnimationFrame(gameLoop);
