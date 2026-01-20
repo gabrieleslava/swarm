@@ -18,9 +18,19 @@ const startScreenEl = document.getElementById('start-screen');
 // Elements for Auth UI
 const emailInput = document.getElementById('email-input');
 const passwordInput = document.getElementById('password-input');
-const loginBtn = document.getElementById('login-btn');
-const signupBtn = document.getElementById('signup-btn'); // Renamed/New
+const loginBtn = document.getElementById('login-btn'); // Main Login
+const signupOpenBtn = document.getElementById('signup-open-btn'); // Opens Modal
 const logoutBtn = document.getElementById('logout-btn');
+// Modal Elements
+const signupModal = document.getElementById('signup-modal');
+const signupSubmitBtn = document.getElementById('signup-submit-btn');
+const signupCancelBtn = document.getElementById('signup-cancel-btn');
+const signupEmailInput = document.getElementById('signup-email');
+const signupPassInput = document.getElementById('signup-password');
+const signupConfirmInput = document.getElementById('signup-confirm');
+const signupMessageEl = document.getElementById('signup-message');
+const authMessageEl = document.getElementById('auth-message');
+const exitGameBtn = document.getElementById('exit-game-btn');
 
 const authContainer = document.getElementById('auth-container');
 const profileContainer = document.getElementById('profile-container');
@@ -122,52 +132,104 @@ function showNameCreationUI() {
 
 // Global Auth Listeners
 
+// Helper Functions
+function showMsg(msg, isError = false) {
+    if (authMessageEl) {
+        authMessageEl.innerText = msg;
+        authMessageEl.style.color = isError ? '#ff4444' : '#ffcc00';
+    } else {
+        console.log(msg);
+        if (isError) alert(msg);
+    }
+}
+
+function showSignupMsg(msg, isError = false) {
+    if (signupMessageEl) {
+        signupMessageEl.innerText = msg;
+        signupMessageEl.style.color = isError ? '#ff4444' : '#ffcc00';
+    }
+}
+
 async function handleLogin() {
     const email = emailInput.value.trim();
     const password = passwordInput.value.trim();
     if (!email || !password) {
-        alert("Preencha email e senha.");
+        showMsg("Preencha email e senha.", true);
         return;
     }
 
     loginBtn.innerText = "...";
+    showMsg("Entrando...");
+
     const res = await signInWithPassword(email, password);
     loginBtn.innerText = "Entrar";
 
     if (res.success) {
-        window.location.reload();
+        showMsg("Sucesso! Recarregando...");
+        setTimeout(() => window.location.reload(), 500);
     } else {
-        alert("Erro no Login: " + res.error);
+        showMsg("Erro: " + res.error, true);
     }
 }
 
+// Modal Logic
+if (signupOpenBtn) {
+    signupOpenBtn.addEventListener('click', () => {
+        if (signupModal) {
+            signupModal.classList.remove('hidden');
+            showSignupMsg("");
+        }
+    });
+}
+
+if (signupCancelBtn) {
+    signupCancelBtn.addEventListener('click', () => {
+        if (signupModal) signupModal.classList.add('hidden');
+    });
+}
+
 async function handleSignUp() {
-    const email = emailInput.value.trim();
-    const password = passwordInput.value.trim();
+    const email = signupEmailInput.value.trim();
+    const password = signupPassInput.value.trim();
+    const confirm = signupConfirmInput.value.trim();
+
     if (!email || !password) {
-        alert("Preencha email e senha.");
+        showSignupMsg("Preencha todos os campos.", true);
+        return;
+    }
+    if (password !== confirm) {
+        showSignupMsg("As senhas não coincidem!", true);
         return;
     }
 
-    signupBtn.innerText = "...";
+    signupSubmitBtn.innerText = "...";
+    showSignupMsg("Cadastrando...");
+
     const res = await signUp(email, password);
-    signupBtn.innerText = "Cadastrar";
+    signupSubmitBtn.innerText = "Finalizar";
 
     if (res.success) {
-        // If email confirmation is off, they might be logged in.
-        // Or they might see "Check your email".
         if (res.data.session) {
-            window.location.reload();
+            showSignupMsg("Conta criada! Entrando...");
+            setTimeout(() => window.location.reload(), 1000);
         } else {
-            alert("Cadastro realizado! Se o login não for automático, verifique seu email.");
+            // Email confirmation required case
+            if (signupModal) signupModal.classList.add('hidden');
+            showMsg("Cadastro realizado! Verifique seu email.", false);
+            alert("Email de confirmação enviado para " + email);
         }
     } else {
-        alert("Erro no Cadastro: " + res.error);
+        showSignupMsg("Erro: " + res.error, true);
     }
 }
 
 if (loginBtn) loginBtn.addEventListener('click', handleLogin);
-if (signupBtn) signupBtn.addEventListener('click', handleSignUp);
+if (signupSubmitBtn) signupSubmitBtn.addEventListener('click', handleSignUp);
+if (exitGameBtn) {
+    exitGameBtn.addEventListener('click', () => {
+        window.location.reload();
+    });
+}
 
 if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
