@@ -219,7 +219,11 @@ async function handleSignUp() {
             alert("Email de confirmação enviado para " + email);
         }
     } else {
-        showSignupMsg("Erro: " + res.error, true);
+        if (res.error && (res.error.includes("User already registered") || res.error.includes("already registered"))) {
+            showSignupMsg("Email já cadastrado!", true);
+        } else {
+            showSignupMsg("Erro: " + res.error, true);
+        }
     }
 }
 
