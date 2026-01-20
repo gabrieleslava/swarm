@@ -1,4 +1,4 @@
-import { saveScore, getTopScores, getUserRank } from './supabase-client.js';
+import { registerPlayer, updatePlayerScore, getTopScores, getUserRank, getPlayerById } from './supabase-client.js';
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -45,7 +45,9 @@ let score = 0;
 let lastTime = 0;
 let spawnTimer = 0;
 let difficultyMultiplier = 1;
+
 let playerName = localStorage.getItem('dinoRogueName') || '';
+let playerId = localStorage.getItem('dinoRogueId') || null;
 
 // Load Leaderboard on Init
 async function loadLeaderboard() {
@@ -63,18 +65,57 @@ async function loadLeaderboard() {
 }
 loadLeaderboard();
 
-// Setup Start Screen
-if (playerName) {
-    nameInput.value = playerName;
+// Check for existing session
+if (playerId) {
+    // Attempt to restore session
+    getPlayerById(playerId).then(data => {
+        if (data) {
+            playerName = data.name;
+            nameInput.value = playerName;
+            nameInput.disabled = true; // Lock name input if we have an account
+            startBtn.innerText = "Jogar Novamente";
+        } else {
+            // Invalid ID (maybe DB reset), clear it
+            localStorage.removeItem('dinoRogueId');
+            playerId = null;
+            nameInput.disabled = false;
+        }
+    });
 }
 
-startBtn.addEventListener('click', () => {
-    const name = nameInput.value.trim().toUpperCase();
-    if (name.length > 0) {
-        playerName = name;
-        localStorage.setItem('dinoRogueName', playerName);
+startBtn.addEventListener('click', async () => {
+    if (playerId) {
+        // Returning user
         startScreenEl.classList.add('hidden');
         startGame();
+        return;
+    }
+
+    const name = nameInput.value.trim().toUpperCase();
+    if (name.length > 0) {
+        startBtn.disabled = true;
+        startBtn.innerText = "Registrando...";
+
+        const result = await registerPlayer(name);
+
+        startBtn.disabled = false;
+        startBtn.innerText = "Iniciar Jogo";
+
+        if (result.success) {
+            playerName = result.name;
+            playerId = result.id;
+            localStorage.setItem('dinoRogueName', playerName);
+            localStorage.setItem('dinoRogueId', playerId);
+
+            startScreenEl.classList.add('hidden');
+            startGame();
+        } else {
+            if (result.error === 'NAME_TAKEN') {
+                alert("Este nome já está em uso. Por favor, escolha outro.");
+            } else {
+                alert("Erro ao conectar: " + result.error);
+            }
+        }
     } else {
         alert("Por favor, digite um nome!");
     }
@@ -463,9 +504,11 @@ function gameOver() {
     }
 
     // Submit Global Score
-    saveScore(playerName, score).then(() => {
-        console.log("Score saved!");
-    });
+    if (playerId) {
+        updatePlayerScore(playerId, score).then(() => {
+            console.log("Score updated!");
+        });
+    }
 }
 
 // Start

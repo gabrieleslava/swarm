@@ -6,68 +6,89 @@ const SUPABASE_KEY = 'sb_publishable_jB6nMk1OfxjrHHHiR6BU_A_GEocUw-j';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-export async function saveScore(name, score) {
+/**
+ * Registers a new player.
+ * Returns { success: true, id: number, name: string } or { success: false, error: string }
+ */
+export async function registerPlayer(name) {
     try {
-        // Check if user already has a higher or equal score
-        const { data: existing, error: fetchError } = await supabase
-            .from('scores')
-            .select('score')
-            .eq('name', name)
-            .gte('score', score)
-            .limit(1);
-
-        if (!fetchError && existing && existing.length > 0) {
-            console.log("Existing score is higher or equal, skipping save.");
-            return true;
-        }
-
         const { data, error } = await supabase
             .from('scores')
-            .insert([
-                { name: name, score: score },
-            ]);
+            .insert([{ name: name, score: 0 }])
+            .select() // Return the ID
+            .single();
 
         if (error) {
-            console.error('Error saving score:', error);
+            // Check for unique violation (Postgres error 23505)
+            if (error.code === '23505') {
+                return { success: false, error: 'NAME_TAKEN' };
+            }
+            console.error('Error registering player:', error);
+            return { success: false, error: error.message };
+        }
+
+        return { success: true, id: data.id, name: data.name };
+    } catch (e) {
+        console.error('Exception registering player:', e);
+        return { success: false, error: e.message };
+    }
+}
+
+/**
+ * Gets player data by ID (for restoring session).
+ */
+export async function getPlayerById(id) {
+    try {
+        const { data, error } = await supabase
+            .from('scores')
+            .select('id, name, score')
+            .eq('id', id)
+            .single();
+
+        if (error) return null;
+        return data;
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * Updates the score for a specific player ID, ONLY if the new score is higher.
+ */
+export async function updatePlayerScore(id, newScore) {
+    try {
+        // We use a "filter-based update": Update score = newScore WHERE id = id AND score < newScore
+        // This ensures strictly increasing scores.
+        const { data, error } = await supabase
+            .from('scores')
+            .update({ score: newScore })
+            .eq('id', id)
+            .lt('score', newScore);
+
+        if (error) {
+            console.error('Error updating score:', error);
             return false;
         }
         return true;
     } catch (e) {
-        console.error('Exception saving score:', e);
+        console.error('Exception updating score:', e);
         return false;
     }
 }
 
 export async function getTopScores(limit = 10) {
     try {
-        // Fetch more scores to handle duplicates
         const { data, error } = await supabase
             .from('scores')
             .select('name, score')
             .order('score', { ascending: false })
-            .limit(limit * 5); // Fetch 5x limit to filter
+            .limit(limit);
 
         if (error) {
             console.error('Error fetching scores:', error);
             return [];
         }
-
-        // Deduplicate in JS (Keep highest score per name)
-        const uniqueScores = [];
-        const seenNames = new Set();
-
-        for (const entry of data) {
-            // Normalize: trim and uppercase to match game input
-            const normalizedName = entry.name ? entry.name.trim().toUpperCase() : '';
-
-            if (normalizedName && !seenNames.has(normalizedName)) {
-                uniqueScores.push(entry);
-                seenNames.add(normalizedName);
-                if (uniqueScores.length >= limit) break;
-            }
-        }
-
-        return uniqueScores;
+        return data; // No deduplication needed locally anymore!
     } catch (e) {
         console.error('Exception fetching scores:', e);
         return [];
@@ -76,18 +97,17 @@ export async function getTopScores(limit = 10) {
 
 export async function getUserRank(score) {
     try {
+        // Count how many people have a higher score
         const { count, error } = await supabase
             .from('scores')
             .select('*', { count: 'exact', head: true })
             .gt('score', score);
 
         if (error) {
-            console.error('Error fetching rank:', error);
             return -1;
         }
         return count + 1;
     } catch (e) {
-        console.error('Exception fetching rank:', e);
         return -1;
     }
 }
