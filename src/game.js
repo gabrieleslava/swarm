@@ -10,8 +10,15 @@ canvas.width = GAME_WIDTH;
 canvas.height = GAME_HEIGHT;
 
 // Assets
-const dinoImg = new Image();
-dinoImg.src = 'assets/images/branco.png';
+const walkImg = new Image();
+walkImg.src = 'assets/images/walk.png';
+const idleImg = new Image();
+idleImg.src = 'assets/images/idle.png';
+const throwImg = new Image();
+throwImg.src = 'assets/images/throw.png';
+const walkAttackImg = new Image();
+walkAttackImg.src = 'assets/images/walk_attack.png';
+
 const bgImg = new Image();
 bgImg.src = 'assets/images/background.png';
 let bgPattern = null;
@@ -40,9 +47,19 @@ const player = {
     shootInterval: 1000,
     // Animation
     currentFrame: 0,
-    maxFrames: 4,
+    maxFrames: 6, // Default for walk
     frameTimer: 0,
-    frameInterval: 150, // Speed of animation (ms)
+    frameInterval: 100,
+    state: 'idle', // walk, throw, walkAttack, idle
+    attackTimer: 0, // Time remaining for attack animation
+    attackDuration: 500, // ms
+    sprites: {
+        idle: { img: idleImg, frames: 4 },
+        walk: { img: walkImg, frames: 6 },
+        throw: { img: throwImg, frames: 4 },
+        walkAttack: { img: walkAttackImg, frames: 6 }
+    },
+    isMoving: false
 };
 
 let projectiles = [];
@@ -175,9 +192,11 @@ function gameLoop(timestamp) {
         const angle = Math.atan2(dy, dx);
         player.x += Math.cos(angle) * player.speed;
         player.y += Math.sin(angle) * player.speed;
+        player.isMoving = true;
     } else {
         player.x = player.targetX;
         player.y = player.targetY;
+        player.isMoving = false;
     }
 
     // Keep Player in Bounds
@@ -206,6 +225,8 @@ function gameLoop(timestamp) {
         }
         projectiles.push(new Projectile(player.x, player.y, targetAngle));
         player.shootTimer = 0;
+        player.attackTimer = player.attackDuration; // Trigger attack animation
+        player.currentFrame = 0; // Reset frame for new animation
     }
 
     // Spawn Enemies
@@ -247,7 +268,28 @@ function gameLoop(timestamp) {
     projectiles.forEach(p => p.draw(ctx));
 
     // Draw Player
-    if (dinoImg.complete && dinoImg.width > 0) {
+    // Draw Player
+
+    // Update State
+    if (player.attackTimer > 0) {
+        player.attackTimer -= deltaTime;
+        if (player.isMoving) {
+            player.state = 'walkAttack';
+        } else {
+            player.state = 'throw';
+        }
+    } else {
+        if (player.isMoving) {
+            player.state = 'walk';
+        } else {
+            player.state = 'idle';
+        }
+    }
+
+    const currentSprite = player.sprites[player.state];
+    player.maxFrames = currentSprite.frames;
+
+    if (currentSprite.img.complete && currentSprite.img.width > 0) {
         // Animation Logic
         player.frameTimer += deltaTime;
         if (player.frameTimer > player.frameInterval) {
@@ -256,11 +298,11 @@ function gameLoop(timestamp) {
             player.frameTimer = 0;
         }
 
-        // 1x4 Grid Logic
-        const cols = 4;
+        // 1 Row Horizontal Strip Logic
+        const cols = player.maxFrames;
         const rows = 1;
-        const frameWidth = dinoImg.width / cols;
-        const frameHeight = dinoImg.height / rows;
+        const frameWidth = currentSprite.img.width / cols;
+        const frameHeight = currentSprite.img.height / rows;
 
         const col = player.currentFrame % cols;
         const row = 0;
@@ -269,7 +311,7 @@ function gameLoop(timestamp) {
         const renderedSize = 64;
 
         ctx.drawImage(
-            dinoImg,
+            currentSprite.img,
             col * frameWidth, row * frameHeight, frameWidth, frameHeight,
             player.x - renderedSize / 2, player.y - renderedSize / 2,
             renderedSize, renderedSize
