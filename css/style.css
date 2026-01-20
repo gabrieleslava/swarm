@@ -12,14 +12,16 @@ body {
 
 #game-container {
     position: relative;
-    border: 4px solid #535353; /* Dark grey border like crt casing */
-    box-shadow: 0 0 20px rgba(0,0,0,0.8);
+    border: 4px solid #535353;
+    /* Dark grey border like crt casing */
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
 }
 
 canvas {
     display: block;
     background-color: #000;
-    image-rendering: pixelated; /* Crucial for pixel art */
+    image-rendering: pixelated;
+    /* Crucial for pixel art */
 }
 
 #ui {
@@ -65,9 +67,9 @@ canvas {
 }
 
 @keyframes blinker {
-  50% {
-    opacity: 0;
-  }
+    50% {
+        opacity: 0;
+    }
 }
 
 .hidden {
@@ -168,4 +170,85 @@ canvas {
 
 #leaderboard-list li span:last-child {
     color: #fff;
+}
+
+/* Pause Menu (reuses some start screen styles) */
+#pause-menu {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    background: rgba(0, 0, 0, 0.95);
+    padding: 40px;
+    border: 4px solid #ffcc00;
+    width: 450px;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#pause-menu h1 {
+    font-size: 48px;
+    margin: 0 0 20px 0;
+    color: #ffcc00;
+    text-shadow: 4px 4px 0 #555;
+    line-height: 1;
+}
+
+#pause-leaderboard {
+    width: 100%;
+    margin-top: 10px;
+    border-top: 2px dashed #ffcc00;
+    padding-top: 10px;
+}
+
+#pause-leaderboard h2 {
+    font-size: 24px;
+    color: #fff;
+    margin: 0 0 10px 0;
+}
+
+#pause-leaderboard-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    text-align: left;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+#pause-leaderboard-list li {
+    display: flex;
+    justify-content: space-between;
+    font-size: 20px;
+    padding: 4px 5px;
+    border-bottom: 1px solid #333;
+}
+
+#pause-leaderboard-list li.highlight-row {
+    background-color: #ffcc00;
+    color: #000;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+#pause-leaderboard-list li.highlight-row span {
+    color: #000 !important;
+}
+
+#resume-btn {
+    padding: 10px 20px;
+    font-size: 24px;
+    font-family: 'VT323', monospace;
+    background: #ffcc00;
+    color: #000;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+#resume-btn:hover {
+    transform: scale(1.1);
 }

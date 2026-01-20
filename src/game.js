@@ -1,4 +1,4 @@
-import { saveScore, getTopScores } from './supabase-client.js';
+import { saveScore, getTopScores, getUserRank } from './supabase-client.js';
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -10,6 +10,9 @@ const startBtn = document.getElementById('start-btn');
 const leaderboardList = document.getElementById('leaderboard-list');
 const finalScoreEl = document.getElementById('final-score');
 const bestScoreEl = document.getElementById('best-score');
+const pauseMenuEl = document.getElementById('pause-menu');
+const pauseLeaderboardList = document.getElementById('pause-leaderboard-list');
+const resumeBtn = document.getElementById('resume-btn');
 
 // Game Settings
 const GAME_WIDTH = 800;
@@ -37,6 +40,7 @@ bgImg.onload = () => {
 
 // State
 let gameActive = false; // Start inactive
+let gamePaused = false;
 let score = 0;
 let lastTime = 0;
 let spawnTimer = 0;
@@ -111,18 +115,79 @@ let particles = [];
 // Input
 let isMouseDown = false;
 canvas.addEventListener('mousedown', (e) => {
+    if (gamePaused) return;
     isMouseDown = true;
     updateTarget(e);
 });
 canvas.addEventListener('mouseup', () => isMouseDown = false);
 canvas.addEventListener('mousemove', (e) => {
-    if (isMouseDown) {
+    if (isMouseDown && !gamePaused) {
         updateTarget(e);
     }
 });
 
+// Pause Input
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && gameActive) {
+        togglePause();
+    }
+});
+
+resumeBtn.addEventListener('click', togglePause);
+
+async function togglePause() {
+    gamePaused = !gamePaused;
+    if (gamePaused) {
+        pauseMenuEl.classList.remove('hidden');
+        // Fetch and show leaderboard
+        updatePauseLeaderboard();
+    } else {
+        pauseMenuEl.classList.add('hidden');
+        lastTime = performance.now(); // Reset delta so we don't jump
+        requestAnimationFrame(gameLoop);
+    }
+}
+
+async function updatePauseLeaderboard() {
+    pauseLeaderboardList.innerHTML = '<li>Loading...</li>';
+    const topScores = await getTopScores(10);
+    pauseLeaderboardList.innerHTML = '';
+
+    let playerInTop10 = false;
+    const currentBest = parseInt(localStorage.getItem('dinoRogueBest') || 0);
+    const displayScore = Math.max(score, currentBest); // Show current run score if better? Or just best? detailed req implied best. 
+    // Requirement: "highlight player name". Usually means "Personal Best". 
+    // If I am playing right now and have 50, but my best is 100, checking rank of 100 makes sense.
+
+    topScores.forEach((s, i) => {
+        const li = document.createElement('li');
+        const isMe = s.name === playerName && s.score === currentBest; // Simple check
+        if (isMe) playerInTop10 = true;
+
+        if (isMe) li.classList.add('highlight-row');
+
+        li.innerHTML = `<span>${i + 1}. ${s.name}</span><span>${s.score}</span>`;
+        pauseLeaderboardList.appendChild(li);
+    });
+
+    if (!playerInTop10) {
+        // Fetch specific rank
+        const rank = await getUserRank(currentBest);
+        if (rank > 0) {
+            const dots = document.createElement('li');
+            dots.innerHTML = '<span style="text-align:center; width:100%">...</span>';
+            pauseLeaderboardList.appendChild(dots);
+
+            const meLi = document.createElement('li');
+            meLi.classList.add('highlight-row');
+            meLi.innerHTML = `<span>${rank}. ${playerName}</span><span>${currentBest}</span>`;
+            pauseLeaderboardList.appendChild(meLi);
+        }
+    }
+}
+
 function updateTarget(e) {
-    if (!gameActive) return;
+    if (!gameActive || gamePaused) return;
     const rect = canvas.getBoundingClientRect();
     player.targetX = e.clientX - rect.left;
     player.targetY = e.clientY - rect.top;
@@ -142,6 +207,7 @@ function startGame() {
 
 function restartGame() {
     gameActive = true;
+    gamePaused = false;
     score = 0;
     difficultyMultiplier = 1;
     player.x = GAME_WIDTH / 2;
@@ -218,7 +284,7 @@ class Enemy {
 
 // Game Loop
 function gameLoop(timestamp) {
-    if (!gameActive) return;
+    if (!gameActive || gamePaused) return;
 
     let deltaTime = timestamp - lastTime;
     lastTime = timestamp;
