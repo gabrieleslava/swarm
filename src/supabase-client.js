@@ -43,3 +43,21 @@ export async function getTopScores(limit = 10) {
         return [];
     }
 }
+
+export async function getUserRank(score) {
+    try {
+        const { count, error } = await supabase
+            .from('scores')
+            .select('*', { count: 'exact', head: true })
+            .gt('score', score);
+
+        if (error) {
+            console.error('Error fetching rank:', error);
+            return -1;
+        }
+        return count + 1;
+    } catch (e) {
+        console.error('Exception fetching rank:', e);
+        return -1;
+    }
+}
