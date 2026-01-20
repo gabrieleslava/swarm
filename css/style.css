@@ -252,3 +252,43 @@ canvas {
 #resume-btn:hover {
     transform: scale(1.1);
 }
+
+/* Auth Buttons */
+.google-btn {
+    background-color: #4285F4;
+    color: white;
+    padding: 10px 20px;
+    font-size: 18px;
+    font-family: inherit;
+    border: none;
+    cursor: pointer;
+    margin-top: 10px;
+    text-transform: uppercase;
+    box-shadow: 4px 4px 0px #000;
+}
+
+.google-btn:hover {
+    background-color: #357ae8;
+    transform: translate(-1px, -1px);
+    box-shadow: 5px 5px 0px #000;
+}
+
+.google-btn:active {
+    transform: translate(1px, 1px);
+    box-shadow: 2px 2px 0px #000;
+}
+
+.text-btn {
+    background: none;
+    border: none;
+    color: #eb4034;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 10px;
+    font-family: inherit;
+}
+
+.text-btn:hover {
+    color: #ff6666;
+}

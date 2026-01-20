@@ -17,10 +17,24 @@
 
             <div id="start-screen">
                 <h1>Dino Rogue Swarm</h1>
-                <div class="input-container">
-                    <input type="text" id="player-name-input" placeholder="Digite seu Nome" maxlength="15">
-                    <button id="start-btn">Iniciar Jogo</button>
+
+                <!-- Auth Container (Show when NOT logged in) -->
+                <div id="auth-container">
+                    <button id="login-btn" class="google-btn">Login com Google</button>
+                    <p style="font-size: 0.8em; margin-top: 10px; color: #ccc;">Necessário para salvar o Ranking</p>
                 </div>
+
+                <!-- Profile Container (Show when Logged In) -->
+                <div id="profile-container" class="hidden">
+                    <p id="welcome-msg" class="hidden">Olá, Jogador!</p>
+                    <div class="input-container">
+                        <input type="text" id="player-name-input" class="hidden" placeholder="Escolha seu Nick"
+                            maxlength="15">
+                        <button id="start-btn">JOGAR</button>
+                    </div>
+                    <button id="logout-btn" class="hidden text-btn">Sair</button>
+                </div>
+
                 <div id="leaderboard">
                     <h2>Ranking Global</h2>
                     <ul id="leaderboard-list">

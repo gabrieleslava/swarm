@@ -6,106 +6,145 @@ const SUPABASE_KEY = 'sb_publishable_jB6nMk1OfxjrHHHiR6BU_A_GEocUw-j';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/**
- * Registers a new player.
- * Returns { success: true, id: number, name: string } or { success: false, error: string }
- */
-export async function registerPlayer(name) {
+// --- Auth Functions ---
+
+export async function signInWithGoogle() {
     try {
-        const { data, error } = await supabase
-            .from('scores')
-            .insert([{ name: name, score: 0 }])
-            .select() // Return the ID
-            .single();
-
-        if (error) {
-            // Check for unique violation (Postgres error 23505)
-            if (error.code === '23505') {
-                return { success: false, error: 'NAME_TAKEN' };
-            }
-            console.error('Error registering player:', error);
-            return { success: false, error: error.message };
-        }
-
-        return { success: true, id: data.id, name: data.name };
+        const { data, error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+        });
+        if (error) throw error;
+        return { success: true, data };
     } catch (e) {
-        console.error('Exception registering player:', e);
+        console.error('Login error:', e);
         return { success: false, error: e.message };
     }
 }
 
-/**
- * Gets player data by ID (for restoring session).
- */
-export async function getPlayerById(id) {
+export async function signOut() {
     try {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+        // Clear local storage on sign out
+        localStorage.removeItem('dinoRogueName');
+        return { success: true };
+    } catch (e) {
+        console.error('Logout error:', e);
+        return { success: false, error: e.message };
+    }
+}
+
+export async function getSession() {
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data.session) return null;
+    return data.session;
+}
+
+// --- Player Profile Functions ---
+
+/**
+ * Gets the profile for the *authenticated* user.
+ */
+export async function getMyProfile() {
+    try {
+        const session = await getSession();
+        if (!session) return null;
+
         const { data, error } = await supabase
-            .from('scores')
-            .select('id, name, score')
-            .eq('id', id)
+            .from('players')
+            .select('*')
+            .eq('user_id', session.user.id)
             .single();
 
-        if (error) return null;
-        return data;
+        if (error) return null; // Details likely missing
+        return data; // { user_id, name, score }
     } catch (e) {
+        console.error(e);
         return null;
     }
 }
 
 /**
- * Updates the score for a specific player ID, ONLY if the new score is higher.
+ * Creates a unique name for the authenticated user.
  */
-export async function updatePlayerScore(id, newScore) {
+export async function createProfile(name) {
     try {
-        // We use a "filter-based update": Update score = newScore WHERE id = id AND score < newScore
-        // This ensures strictly increasing scores.
+        const session = await getSession();
+        if (!session) return { success: false, error: "Not authenticated" };
+
         const { data, error } = await supabase
-            .from('scores')
-            .update({ score: newScore })
-            .eq('id', id)
+            .from('players')
+            .insert([{
+                user_id: session.user.id,
+                name: name,
+                score: 0
+            }]);
+
+        if (error) {
+            if (error.code === '23505') return { success: false, error: 'NAME_TAKEN' }; // Unique violation
+            return { success: false, error: error.message };
+        }
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+}
+
+/**
+ * Updates the score if the new one is higher.
+ */
+export async function updateBestScore(newScore) {
+    try {
+        const session = await getSession();
+        if (!session) return false;
+
+        // Filter: update only if score < newScore
+        const { data, error } = await supabase
+            .from('players')
+            .update({ score: newScore, updated_at: new Date() })
+            .eq('user_id', session.user.id)
             .lt('score', newScore);
 
         if (error) {
-            console.error('Error updating score:', error);
+            // It might not be an error, just that score wasn't higher.
+            // But we can log just in case.
             return false;
         }
         return true;
     } catch (e) {
-        console.error('Exception updating score:', e);
+        console.error(e);
         return false;
     }
 }
 
+// --- Public Data ---
+
 export async function getTopScores(limit = 10) {
     try {
         const { data, error } = await supabase
-            .from('scores')
+            .from('players')
             .select('name, score')
             .order('score', { ascending: false })
             .limit(limit);
 
         if (error) {
-            console.error('Error fetching scores:', error);
+            console.error(error);
             return [];
         }
-        return data; // No deduplication needed locally anymore!
+        return data;
     } catch (e) {
-        console.error('Exception fetching scores:', e);
         return [];
     }
 }
 
 export async function getUserRank(score) {
     try {
-        // Count how many people have a higher score
         const { count, error } = await supabase
-            .from('scores')
+            .from('players')
             .select('*', { count: 'exact', head: true })
             .gt('score', score);
 
-        if (error) {
-            return -1;
-        }
+        if (error) return -1;
         return count + 1;
     } catch (e) {
         return -1;
