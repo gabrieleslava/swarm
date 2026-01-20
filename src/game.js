@@ -215,8 +215,8 @@ async function handleSignUp() {
         } else {
             // Email confirmation required case
             if (signupModal) signupModal.classList.add('hidden');
-            showMsg("Cadastro realizado! Verifique seu email.", false);
-            alert("Email de confirmação enviado para " + email);
+            showMsg("Verifique seu email para confirmar.", false);
+            alert("Caso seu email esteja correto, enviamos uma confirmação para " + email);
         }
     } else {
         if (res.error && (res.error.includes("User already registered") || res.error.includes("already registered"))) {
