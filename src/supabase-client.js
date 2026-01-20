@@ -8,6 +8,19 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 export async function saveScore(name, score) {
     try {
+        // Check if user already has a higher or equal score
+        const { data: existing, error: fetchError } = await supabase
+            .from('scores')
+            .select('score')
+            .eq('name', name)
+            .gte('score', score)
+            .limit(1);
+
+        if (!fetchError && existing && existing.length > 0) {
+            console.log("Existing score is higher or equal, skipping save.");
+            return true;
+        }
+
         const { data, error } = await supabase
             .from('scores')
             .insert([
@@ -27,17 +40,34 @@ export async function saveScore(name, score) {
 
 export async function getTopScores(limit = 10) {
     try {
+        // Fetch more scores to handle duplicates
         const { data, error } = await supabase
             .from('scores')
             .select('name, score')
             .order('score', { ascending: false })
-            .limit(limit);
+            .limit(limit * 5); // Fetch 5x limit to filter
 
         if (error) {
             console.error('Error fetching scores:', error);
             return [];
         }
-        return data;
+
+        // Deduplicate in JS (Keep highest score per name)
+        const uniqueScores = [];
+        const seenNames = new Set();
+
+        for (const entry of data) {
+            // Normalize: trim and uppercase to match game input
+            const normalizedName = entry.name ? entry.name.trim().toUpperCase() : '';
+
+            if (normalizedName && !seenNames.has(normalizedName)) {
+                uniqueScores.push(entry);
+                seenNames.add(normalizedName);
+                if (uniqueScores.length >= limit) break;
+            }
+        }
+
+        return uniqueScores;
     } catch (e) {
         console.error('Exception fetching scores:', e);
         return [];

@@ -155,15 +155,16 @@ async function updatePauseLeaderboard() {
 
     let playerInTop10 = false;
     const currentBest = parseInt(localStorage.getItem('dinoRogueBest') || 0);
-    const displayScore = Math.max(score, currentBest); // Show current run score if better? Or just best? detailed req implied best. 
-    // Requirement: "highlight player name". Usually means "Personal Best". 
-    // If I am playing right now and have 50, but my best is 100, checking rank of 100 makes sense.
 
     topScores.forEach((s, i) => {
         const li = document.createElement('li');
-        const isMe = s.name === playerName && s.score === currentBest; // Simple check
-        if (isMe) playerInTop10 = true;
+        // Relaxed check: Highlight if name matches (simplifies logic for multiple tabs/devices)
+        const sName = s.name ? s.name.trim().toUpperCase() : '';
+        const pName = playerName ? playerName.trim().toUpperCase() : '';
 
+        const isMe = (sName === pName && pName.length > 0);
+
+        if (isMe) playerInTop10 = true;
         if (isMe) li.classList.add('highlight-row');
 
         li.innerHTML = `<span>${i + 1}. ${s.name}</span><span>${s.score}</span>`;
