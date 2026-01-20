@@ -174,9 +174,12 @@ async function updatePauseLeaderboard() {
         // Fetch specific rank
         const rank = await getUserRank(currentBest);
         if (rank > 0) {
-            const dots = document.createElement('li');
-            dots.innerHTML = '<span style="text-align:center; width:100%">...</span>';
-            pauseLeaderboardList.appendChild(dots);
+            // Only show dots if we have items above us
+            if (pauseLeaderboardList.children.length > 0) {
+                const dots = document.createElement('li');
+                dots.innerHTML = '<span style="text-align:center; width:100%">...</span>';
+                pauseLeaderboardList.appendChild(dots);
+            }
 
             const meLi = document.createElement('li');
             meLi.classList.add('highlight-row');
