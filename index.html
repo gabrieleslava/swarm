@@ -14,13 +14,30 @@
         <canvas id="gameCanvas"></canvas>
         <div id="ui">
             <div id="score">Score: 0</div>
+
+            <div id="start-screen">
+                <h1>Dino Rogue Swarm</h1>
+                <div class="input-container">
+                    <input type="text" id="player-name-input" placeholder="Enter Your Name" maxlength="15">
+                    <button id="start-btn">Start Game</button>
+                </div>
+                <div id="leaderboard">
+                    <h2>Top 10 Global</h2>
+                    <ul id="leaderboard-list">
+                        <li>Loading...</li>
+                    </ul>
+                </div>
+            </div>
+
             <div id="game-over" class="hidden">
                 <h1>GAME OVER</h1>
-                <p>Click to Restart</p>
+                <p id="final-score">Score: 0</p>
+                <p id="best-score" style="font-size: 18px; color: #aaa;">Best: 0</p>
+                <p style="font-size: 14px; margin-top: 10px;">Click to Play Again</p>
             </div>
         </div>
     </div>
-    <script src="src/game.js"></script>
+    <script type="module" src="src/game.js"></script>
 </body>
 
 </html>

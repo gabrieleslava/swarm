@@ -1,7 +1,15 @@
+import { saveScore, getTopScores } from './supabase-client.js';
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const scoreEl = document.getElementById('score');
 const gameOverEl = document.getElementById('game-over');
+const startScreenEl = document.getElementById('start-screen');
+const nameInput = document.getElementById('player-name-input');
+const startBtn = document.getElementById('start-btn');
+const leaderboardList = document.getElementById('leaderboard-list');
+const finalScoreEl = document.getElementById('final-score');
+const bestScoreEl = document.getElementById('best-score');
 
 // Game Settings
 const GAME_WIDTH = 800;
@@ -28,11 +36,45 @@ bgImg.onload = () => {
 };
 
 // State
-let gameActive = true;
+let gameActive = false; // Start inactive
 let score = 0;
 let lastTime = 0;
 let spawnTimer = 0;
 let difficultyMultiplier = 1;
+let playerName = localStorage.getItem('dinoRogueName') || '';
+
+// Load Leaderboard on Init
+async function loadLeaderboard() {
+    leaderboardList.innerHTML = '<li>Loading...</li>';
+    const scores = await getTopScores(10);
+    leaderboardList.innerHTML = '';
+    if (scores.length === 0) {
+        leaderboardList.innerHTML = '<li>No scores yet</li>';
+    }
+    scores.forEach((s, i) => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span>${i + 1}. ${s.name}</span><span>${s.score}</span>`;
+        leaderboardList.appendChild(li);
+    });
+}
+loadLeaderboard();
+
+// Setup Start Screen
+if (playerName) {
+    nameInput.value = playerName;
+}
+
+startBtn.addEventListener('click', () => {
+    const name = nameInput.value.trim().toUpperCase();
+    if (name.length > 0) {
+        playerName = name;
+        localStorage.setItem('dinoRogueName', playerName);
+        startScreenEl.classList.add('hidden');
+        startGame();
+    } else {
+        alert("Please enter a name!");
+    }
+});
 
 // Objects
 const player = {
@@ -87,7 +129,16 @@ function updateTarget(e) {
 }
 
 // Restart
-gameOverEl.addEventListener('click', restartGame);
+gameOverEl.addEventListener('click', () => {
+    // Return to start screen to see leaderboard? Or just fast restart?
+    // Let's just restart for better flow, but maybe update leaderboard in background?
+    // Actually, user requested "Play Again" button. The click on Game Over div acts as that.
+    restartGame();
+});
+
+function startGame() {
+    restartGame();
+}
 
 function restartGame() {
     gameActive = true;
@@ -102,6 +153,7 @@ function restartGame() {
     particles = [];
     gameOverEl.classList.add('hidden');
     scoreEl.innerText = `Score: ${score}`;
+    lastTime = performance.now(); // Reset time to avoid huge delta
     requestAnimationFrame(gameLoop);
 }
 
@@ -329,7 +381,23 @@ function gameLoop(timestamp) {
 function gameOver() {
     gameActive = false;
     gameOverEl.classList.remove('hidden');
+    finalScoreEl.innerText = `Score: ${score}`;
+
+    // Local High Score
+    const localBest = localStorage.getItem('dinoRogueBest') || 0;
+    if (score > localBest) {
+        localStorage.setItem('dinoRogueBest', score);
+        bestScoreEl.innerText = `Best: ${score} (NEW!)`;
+    } else {
+        bestScoreEl.innerText = `Best: ${localBest}`;
+    }
+
+    // Submit Global Score
+    saveScore(playerName, score).then(() => {
+        console.log("Score saved!");
+    });
 }
 
 // Start
-requestAnimationFrame(gameLoop);
+// Start moved to Event Listener
+// requestAnimationFrame(gameLoop);
