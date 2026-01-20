@@ -177,30 +177,42 @@ if (logoutBtn) {
 }
 
 // Initial Load
+// Initial Load
 async function init() {
-    loadLeaderboard();
-    const session = await getSession();
+    try {
+        await loadLeaderboard(); // Await this now
+        const session = await getSession();
 
-
-    if (!session) {
-        // State 1: Not Logged In
-        authContainer.classList.remove('hidden');
-        profileContainer.classList.add('hidden');
-    } else {
-        // Logged In
-        if (logoutBtn) logoutBtn.classList.remove('hidden');
-        authContainer.classList.add('hidden');
-
-        const profile = await getMyProfile();
-        if (profile) {
-            // State 3: Has Profile
-            showAuthenticatedUI(profile.name);
+        if (!session) {
+            // State 1: Not Logged In
+            authContainer.classList.remove('hidden');
+            profileContainer.classList.add('hidden');
+            if (leaderboardList && leaderboardList.innerHTML === '<li>Carregando...</li>') {
+                leaderboardList.innerHTML = '<li>Erro ao carregar ranking</li>';
+            }
         } else {
-            // State 2: Needs Name
-            showNameCreationUI();
+            // Logged In
+            if (logoutBtn) logoutBtn.classList.remove('hidden');
+            authContainer.classList.add('hidden');
+
+            const profile = await getMyProfile();
+            if (profile) {
+                // State 3: Has Profile
+                showAuthenticatedUI(profile.name);
+            } else {
+                // State 2: Needs Name
+                showNameCreationUI();
+            }
         }
+    } catch (e) {
+        console.error("Init Error:", e);
+        if (leaderboardList) leaderboardList.innerHTML = '<li>Erro de Conexão</li>';
+        showMsg("Erro ao iniciar: " + e.message, true);
     }
 }
+
+
+
 init();
 
 // Load Leaderboard on Init
