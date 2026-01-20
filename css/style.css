@@ -253,29 +253,61 @@ canvas {
     transform: scale(1.1);
 }
 
-/* Auth Buttons */
-.google-btn {
-    background-color: #4285F4;
+/* Auth Inputs & Buttons */
+.auth-input {
+    display: block;
+    width: 60%;
+    margin: 10px auto;
+    padding: 10px;
+    font-size: 16px;
+    font-family: 'VT323', monospace;
+    background-color: #333;
+    color: white;
+    border: 2px solid #555;
+    text-align: center;
+}
+
+.auth-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.primary-btn {
+    background-color: #ffcc00;
+    color: #222;
+    padding: 10px 20px;
+    font-size: 18px;
+    font-family: inherit;
+    border: none;
+    cursor: pointer;
+    text-transform: uppercase;
+    box-shadow: 4px 4px 0px #000;
+}
+
+.primary-btn:hover {
+    background-color: #ffe066;
+    transform: translate(-1px, -1px);
+    box-shadow: 5px 5px 0px #000;
+}
+
+.secondary-btn {
+    background-color: #555;
     color: white;
     padding: 10px 20px;
     font-size: 18px;
     font-family: inherit;
     border: none;
     cursor: pointer;
-    margin-top: 10px;
     text-transform: uppercase;
     box-shadow: 4px 4px 0px #000;
 }
 
-.google-btn:hover {
-    background-color: #357ae8;
+.secondary-btn:hover {
+    background-color: #777;
     transform: translate(-1px, -1px);
     box-shadow: 5px 5px 0px #000;
-}
-
-.google-btn:active {
-    transform: translate(1px, 1px);
-    box-shadow: 2px 2px 0px #000;
 }
 
 .text-btn {

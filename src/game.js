@@ -1,6 +1,6 @@
-
 import {
-    signInWithGoogle,
+    signUp,
+    signInWithPassword,
     signOut,
     getMyProfile,
     createProfile,
@@ -16,8 +16,12 @@ const scoreEl = document.getElementById('score');
 const gameOverEl = document.getElementById('game-over');
 const startScreenEl = document.getElementById('start-screen');
 // Elements for Auth UI
+const emailInput = document.getElementById('email-input');
+const passwordInput = document.getElementById('password-input');
 const loginBtn = document.getElementById('login-btn');
+const signupBtn = document.getElementById('signup-btn'); // Renamed/New
 const logoutBtn = document.getElementById('logout-btn');
+
 const authContainer = document.getElementById('auth-container');
 const profileContainer = document.getElementById('profile-container');
 const nameInput = document.getElementById('player-name-input');
@@ -87,7 +91,7 @@ function showAuthenticatedUI(name) {
 }
 
 function showNameCreationUI() {
-    // User is logged in (via Google) but table has no row
+    // User is logged in but table has no row
     authContainer.classList.add('hidden');
     profileContainer.classList.remove('hidden');
 
@@ -117,16 +121,53 @@ function showNameCreationUI() {
 }
 
 // Global Auth Listeners
-if (loginBtn) {
-    loginBtn.addEventListener('click', async () => {
-        loginBtn.innerText = "Conectando...";
-        const res = await signInWithGoogle();
-        if (!res.success) {
-            alert("Falha no Login: " + res.error);
-            loginBtn.innerText = "Login com Google";
-        }
-    });
+
+async function handleLogin() {
+    const email = emailInput.value.trim();
+    const password = passwordInput.value.trim();
+    if (!email || !password) {
+        alert("Preencha email e senha.");
+        return;
+    }
+
+    loginBtn.innerText = "...";
+    const res = await signInWithPassword(email, password);
+    loginBtn.innerText = "Entrar";
+
+    if (res.success) {
+        window.location.reload();
+    } else {
+        alert("Erro no Login: " + res.error);
+    }
 }
+
+async function handleSignUp() {
+    const email = emailInput.value.trim();
+    const password = passwordInput.value.trim();
+    if (!email || !password) {
+        alert("Preencha email e senha.");
+        return;
+    }
+
+    signupBtn.innerText = "...";
+    const res = await signUp(email, password);
+    signupBtn.innerText = "Cadastrar";
+
+    if (res.success) {
+        // If email confirmation is off, they might be logged in.
+        // Or they might see "Check your email".
+        if (res.data.session) {
+            window.location.reload();
+        } else {
+            alert("Cadastro realizado! Se o login não for automático, verifique seu email.");
+        }
+    } else {
+        alert("Erro no Cadastro: " + res.error);
+    }
+}
+
+if (loginBtn) loginBtn.addEventListener('click', handleLogin);
+if (signupBtn) signupBtn.addEventListener('click', handleSignUp);
 
 if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
@@ -139,6 +180,7 @@ if (logoutBtn) {
 async function init() {
     loadLeaderboard();
     const session = await getSession();
+
 
     if (!session) {
         // State 1: Not Logged In

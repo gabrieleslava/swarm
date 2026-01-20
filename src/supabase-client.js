@@ -8,15 +8,28 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // --- Auth Functions ---
 
-export async function signInWithGoogle() {
+export async function signUp(email, password) {
     try {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
+        const { data, error } = await supabase.auth.signUp({
+            email: email,
+            password: password,
         });
         if (error) throw error;
         return { success: true, data };
     } catch (e) {
-        console.error('Login error:', e);
+        return { success: false, error: e.message };
+    }
+}
+
+export async function signInWithPassword(email, password) {
+    try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email: email,
+            password: password,
+        });
+        if (error) throw error;
+        return { success: true, data };
+    } catch (e) {
         return { success: false, error: e.message };
     }
 }
@@ -25,7 +38,6 @@ export async function signOut() {
     try {
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
-        // Clear local storage on sign out
         localStorage.removeItem('dinoRogueName');
         return { success: true };
     } catch (e) {
