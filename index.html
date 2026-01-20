@@ -13,38 +13,38 @@
     <div id="game-container">
         <canvas id="gameCanvas"></canvas>
         <div id="ui">
-            <div id="score">Score: 0</div>
+            <div id="score">Pontos: 0</div>
 
             <div id="start-screen">
                 <h1>Dino Rogue Swarm</h1>
                 <div class="input-container">
-                    <input type="text" id="player-name-input" placeholder="Enter Your Name" maxlength="15">
-                    <button id="start-btn">Start Game</button>
+                    <input type="text" id="player-name-input" placeholder="Digite seu Nome" maxlength="15">
+                    <button id="start-btn">Iniciar Jogo</button>
                 </div>
                 <div id="leaderboard">
-                    <h2>Top 10 Global</h2>
+                    <h2>Ranking Global</h2>
                     <ul id="leaderboard-list">
-                        <li>Loading...</li>
+                        <li>Carregando...</li>
                     </ul>
                 </div>
             </div>
 
             <div id="pause-menu" class="hidden">
-                <h1>PAUSED</h1>
+                <h1>PAUSADO</h1>
                 <div id="pause-leaderboard">
-                    <h2>Global Standings</h2>
+                    <h2>Ranking Global</h2>
                     <ul id="pause-leaderboard-list">
-                        <li>Loading...</li>
+                        <li>Carregando...</li>
                     </ul>
                 </div>
-                <button id="resume-btn" style="margin-top: 20px;">Resume (ESC)</button>
+                <button id="resume-btn" style="margin-top: 20px;">Continuar (ESC)</button>
             </div>
 
             <div id="game-over" class="hidden">
-                <h1>GAME OVER</h1>
-                <p id="final-score">Score: 0</p>
-                <p id="best-score" style="font-size: 18px; color: #aaa;">Best: 0</p>
-                <p style="font-size: 14px; margin-top: 10px;">Click to Play Again</p>
+                <h1>FIM DE JOGO</h1>
+                <p id="final-score">Pontos: 0</p>
+                <p id="best-score" style="font-size: 18px; color: #aaa;">Melhor: 0</p>
+                <p style="font-size: 14px; margin-top: 10px;">Clique para Jogar Novamente</p>
             </div>
         </div>
     </div>

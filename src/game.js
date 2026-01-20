@@ -49,11 +49,11 @@ let playerName = localStorage.getItem('dinoRogueName') || '';
 
 // Load Leaderboard on Init
 async function loadLeaderboard() {
-    leaderboardList.innerHTML = '<li>Loading...</li>';
+    leaderboardList.innerHTML = '<li>Carregando...</li>';
     const scores = await getTopScores(10);
     leaderboardList.innerHTML = '';
     if (scores.length === 0) {
-        leaderboardList.innerHTML = '<li>No scores yet</li>';
+        leaderboardList.innerHTML = '<li>Sem pontuações ainda</li>';
     }
     scores.forEach((s, i) => {
         const li = document.createElement('li');
@@ -76,7 +76,7 @@ startBtn.addEventListener('click', () => {
         startScreenEl.classList.add('hidden');
         startGame();
     } else {
-        alert("Please enter a name!");
+        alert("Por favor, digite um nome!");
     }
 });
 
@@ -149,7 +149,7 @@ async function togglePause() {
 }
 
 async function updatePauseLeaderboard() {
-    pauseLeaderboardList.innerHTML = '<li>Loading...</li>';
+    pauseLeaderboardList.innerHTML = '<li>Carregando...</li>';
     const topScores = await getTopScores(10);
     pauseLeaderboardList.innerHTML = '';
 
@@ -218,7 +218,7 @@ function restartGame() {
     enemies = [];
     particles = [];
     gameOverEl.classList.add('hidden');
-    scoreEl.innerText = `Score: ${score}`;
+    scoreEl.innerText = `Pontos: ${score}`;
     lastTime = performance.now(); // Reset time to avoid huge delta
     requestAnimationFrame(gameLoop);
 }
@@ -376,7 +376,7 @@ function gameLoop(timestamp) {
                 e.markedForDeletion = true;
                 p.markedForDeletion = true;
                 score += 10;
-                scoreEl.innerText = `Score: ${score}`;
+                scoreEl.innerText = `Pontos: ${score}`;
             }
         });
     });
@@ -447,15 +447,15 @@ function gameLoop(timestamp) {
 function gameOver() {
     gameActive = false;
     gameOverEl.classList.remove('hidden');
-    finalScoreEl.innerText = `Score: ${score}`;
+    finalScoreEl.innerText = `Pontos: ${score}`;
 
     // Local High Score
     const localBest = localStorage.getItem('dinoRogueBest') || 0;
     if (score > localBest) {
         localStorage.setItem('dinoRogueBest', score);
-        bestScoreEl.innerText = `Best: ${score} (NEW!)`;
+        bestScoreEl.innerText = `Melhor: ${score} (NOVO!)`;
     } else {
-        bestScoreEl.innerText = `Best: ${localBest}`;
+        bestScoreEl.innerText = `Melhor: ${localBest}`;
     }
 
     // Submit Global Score
