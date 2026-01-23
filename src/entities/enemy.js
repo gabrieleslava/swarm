@@ -29,6 +29,12 @@ export class Enemy {
                 baseSpeed: 0.3,
                 speedVar: 0.1
             },
+            'monster_red': {
+                baseHp: 25,
+                baseDamage: 12,
+                baseSpeed: 0.35,
+                speedVar: 0.1
+            },
             'monster_eye': {
                 baseHp: 10,
                 baseDamage: 15,
@@ -50,6 +56,12 @@ export class Enemy {
         this.hp = this.maxHp;
         this.damage = config.baseDamage + (2 * difficultyMultiplier);
         this.speed = config.baseSpeed + (Math.random() * config.speedVar * difficultyMultiplier);
+
+        if (enemyType === 'monster_red') {
+            this.maxFrames = 3; // Stitched from 3 images
+        } else {
+            this.maxFrames = 4;
+        }
     }
 
     takeDamage(amount) {

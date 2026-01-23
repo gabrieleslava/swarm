@@ -16,7 +16,7 @@ export class WaveManager {
                 spawnInterval: 250, // Much faster for density vs slow enemies
                 pattern: 'edge',
                 difficulty: 1,
-                enemyType: 'monster_slime'
+                enemyType: 'monster_red'
             },
             {
                 startTime: 60,

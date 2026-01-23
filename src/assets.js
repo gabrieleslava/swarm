@@ -7,7 +7,8 @@ export const ASSETS = {
     monster_slime: new Image(),
     monster_eye: new Image(),
     monster_skeleton: new Image(),
-    boss_demon: new Image()
+    boss_demon: new Image(),
+    monster_red: new Image()
 };
 
 export let bgPattern = null;
@@ -24,6 +25,9 @@ export function loadAssets(ctx) {
     loadWithColorKey(ASSETS.monster_slime, 'assets/images/monster_slime.png');
     loadWithColorKey(ASSETS.monster_eye, 'assets/images/monster_eye.png');
     loadWithColorKey(ASSETS.monster_skeleton, 'assets/images/monster_skeleton.png');
+
+    // User custom sprite (stitched)
+    ASSETS.monster_red.src = 'assets/images/monster_red.png';
 
     ASSETS.boss_demon.src = 'assets/images/boss_demon.png';
 
