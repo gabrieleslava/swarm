@@ -63,28 +63,38 @@
                     </ul>
                 </div>
             </div>
+        </div>
 
-            <div id="pause-menu" class="hidden">
-                <h1>PAUSADO</h1>
-                <div id="pause-leaderboard">
-                    <h2>Ranking Global</h2>
-                    <ul id="pause-leaderboard-list">
-                        <li>Carregando...</li>
-                    </ul>
-                </div>
-                <button id="resume-btn" style="margin-top: 20px;">Continuar (ESC)</button>
-                <button id="exit-game-btn" class="secondary-btn" style="margin-top: 10px;">Sair do Jogo</button>
-            </div>
-
-            <div id="game-over" class="hidden">
-                <h1>FIM DE JOGO</h1>
-                <p id="final-score">Pontos: 0</p>
-                <p id="best-score" style="font-size: 18px; color: #aaa;">Melhor: 0</p>
-                <p style="font-size: 14px; margin-top: 10px;">Clique para Jogar Novamente</p>
+        <!-- Level Up Screen -->
+        <div id="level-up-screen" class="hidden">
+            <h1>LEVEL UP!</h1>
+            <p>Escolha uma melhoria</p>
+            <div id="upgrade-options">
+                <!-- Cards will be injected here -->
             </div>
         </div>
+
+        <div id="pause-menu" class="hidden">
+            <h1>PAUSADO</h1>
+            <div id="pause-leaderboard">
+                <h2>Ranking Global</h2>
+                <ul id="pause-leaderboard-list">
+                    <li>Carregando...</li>
+                </ul>
+            </div>
+            <button id="resume-btn" style="margin-top: 20px;">Continuar (ESC)</button>
+            <button id="exit-game-btn" class="secondary-btn" style="margin-top: 10px;">Sair do Jogo</button>
+        </div>
+
+        <div id="game-over" class="hidden">
+            <h1>FIM DE JOGO</h1>
+            <p id="final-score">Pontos: 0</p>
+            <p id="best-score" style="font-size: 18px; color: #aaa;">Melhor: 0</p>
+            <p style="font-size: 14px; margin-top: 10px;">Clique para Jogar Novamente</p>
+        </div>
     </div>
-    <script type="module" src="src/game.js"></script>
+    </div>
+    <script type="module" src="src/game.js?v=2"></script>
 </body>
 
 </html>

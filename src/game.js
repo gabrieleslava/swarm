@@ -1,73 +1,61 @@
 import {
-    signUp,
-    signInWithPassword,
-    signOut,
-    getMyProfile,
     createProfile,
     updateBestScore,
     getTopScores,
     getUserRank,
-    getSession
+    getSession,
+    getMyProfile
 } from './supabase-client.js';
+
+import { GAME_WIDTH, GAME_HEIGHT } from './constants.js';
+import { loadAssets, bgPattern } from './assets.js';
+import * as UI from './ui.js';
+import { initAuthListeners } from './auth-ui.js';
+import { player } from './entities/player.js';
+import { Enemy } from './entities/enemy.js';
+import { Projectile } from './entities/projectile.js';
+import { Pickup } from './entities/Pickup.js';
+import { FloatingText } from './entities/FloatingText.js';
+
+import { InputManager } from './core/InputManager.js';
+import { PoolManager } from './core/PoolManager.js';
+import { GameCamera } from './core/GameCamera.js';
+import { EvolutionManager } from './managers/EvolutionManager.js';
+import { WaveManager } from './managers/WaveManager.js';
+import { LootManager } from './managers/LootManager.js';
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-const scoreEl = document.getElementById('score');
-const gameOverEl = document.getElementById('game-over');
-const startScreenEl = document.getElementById('start-screen');
-// Elements for Auth UI
-const emailInput = document.getElementById('email-input');
-const passwordInput = document.getElementById('password-input');
-const loginBtn = document.getElementById('login-btn'); // Main Login
-const signupOpenBtn = document.getElementById('signup-open-btn'); // Opens Modal
-const logoutBtn = document.getElementById('logout-btn');
-// Modal Elements
-const signupModal = document.getElementById('signup-modal');
-const signupSubmitBtn = document.getElementById('signup-submit-btn');
-const signupCancelBtn = document.getElementById('signup-cancel-btn');
-const signupEmailInput = document.getElementById('signup-email');
-const signupPassInput = document.getElementById('signup-password');
-const signupConfirmInput = document.getElementById('signup-confirm');
-const signupMessageEl = document.getElementById('signup-message');
-const authMessageEl = document.getElementById('auth-message');
-const exitGameBtn = document.getElementById('exit-game-btn');
-
-const authContainer = document.getElementById('auth-container');
-const profileContainer = document.getElementById('profile-container');
-const nameInput = document.getElementById('player-name-input');
-const startBtn = document.getElementById('start-btn');
-const welcomeMsg = document.getElementById('welcome-msg');
-
-const leaderboardList = document.getElementById('leaderboard-list');
-const finalScoreEl = document.getElementById('final-score');
-const bestScoreEl = document.getElementById('best-score');
-const pauseMenuEl = document.getElementById('pause-menu');
-const pauseLeaderboardList = document.getElementById('pause-leaderboard-list');
-const resumeBtn = document.getElementById('resume-btn');
-
-// Game Settings
-const GAME_WIDTH = 800;
-const GAME_HEIGHT = 600;
 canvas.width = GAME_WIDTH;
 canvas.height = GAME_HEIGHT;
 
-// Assets
-const walkImg = new Image();
-walkImg.src = 'assets/images/walk.png';
-const idleImg = new Image();
-idleImg.src = 'assets/images/idle.png';
-const throwImg = new Image();
-throwImg.src = 'assets/images/throw.png';
-const walkAttackImg = new Image();
-walkAttackImg.src = 'assets/images/walk_attack.png';
+// --- Core Systems ---
+const inputManager = new InputManager();
+const poolManager = new PoolManager();
+const camera = new GameCamera(GAME_WIDTH, GAME_HEIGHT);
+const evolutionManager = new EvolutionManager();
+const waveManager = new WaveManager();
+const lootManager = new LootManager(poolManager);
 
-const bgImg = new Image();
-bgImg.src = 'assets/images/background.png';
-let bgPattern = null;
+// Initialize Pools
+poolManager.createPool('enemy', () => new Enemy(), 100);
+poolManager.createPool('projectile', () => new Projectile(0, 0, 0), 50);
+poolManager.createPool('pickup', () => new Pickup(), 50);
+poolManager.createPool('text', () => new FloatingText(), 20);
 
-bgImg.onload = () => {
-    bgPattern = ctx.createPattern(bgImg, 'repeat');
-};
+// Entities Lists
+let projectiles = [];
+let enemies = [];
+let particles = [];
+let damageTexts = [];
+
+// Initialize Weapons
+// We need player ready? Player is imported singleton.
+evolutionManager.init(player);
+
+
+// Start Loading Assets
+loadAssets(ctx);
 
 // State
 let gameActive = false;
@@ -78,347 +66,133 @@ let spawnTimer = 0;
 let difficultyMultiplier = 1;
 let playerName = '';
 
-// --- Auth & Start Logic ---
+// Entities Arrays
+
+
+// Initialize Auth
+initAuthListeners();
+
+// --- Initialization Logic ---
+
+async function init() {
+    try {
+        await loadLeaderboard();
+        const session = await getSession();
+
+        if (!session) {
+            // Not Logged In
+            UI.authContainer.classList.remove('hidden');
+            UI.profileContainer.classList.add('hidden');
+            if (UI.leaderboardList && UI.leaderboardList.innerHTML === '<li>Carregando...</li>') {
+                UI.leaderboardList.innerHTML = '<li>Erro ao carregar ranking</li>';
+            }
+        } else {
+            // Logged In
+            if (UI.logoutBtn) UI.logoutBtn.classList.remove('hidden');
+            UI.authContainer.classList.add('hidden');
+
+            const profile = await getMyProfile();
+            if (profile) {
+                showAuthenticatedUI(profile.name);
+            } else {
+                showNameCreationUI(async (name) => {
+                    // Placeholder
+                });
+            }
+        }
+    } catch (e) {
+        console.error("Init Error:", e);
+        if (UI.leaderboardList) UI.leaderboardList.innerHTML = '<li>Erro de Conexão</li>';
+        UI.showMsg("Erro ao iniciar: " + e.message, true);
+    }
+
+    // Hook Level Up
+    player.onLevelUp = (level) => {
+        triggerLevelUp(level);
+    };
+}
+
+function triggerLevelUp(level) {
+    if (!gameActive) return;
+
+    // Pause Game
+    gamePaused = true;
+
+    // Get Options
+    const options = evolutionManager.getUpgrades();
+
+    // Show UI
+    UI.showLevelUpScreen(options, (selectedOption) => {
+        // On Select
+        evolutionManager.applyUpgrade(player, selectedOption);
+
+        // Resume
+        gamePaused = false;
+        lastTime = performance.now(); // Reset delta
+        requestAnimationFrame(gameLoop);
+    });
+}
+
+init();
+
+// --- UI Helpers for State ---
 
 function showAuthenticatedUI(name) {
     playerName = name;
-    authContainer.classList.add('hidden');
-    profileContainer.classList.remove('hidden');
+    UI.authContainer.classList.add('hidden');
+    UI.profileContainer.classList.remove('hidden');
 
-    // Hide name input since we have a profile
-    nameInput.classList.add('hidden');
-    welcomeMsg.innerText = `Olá, ${playerName}!`;
-    welcomeMsg.classList.remove('hidden');
+    UI.nameInput.classList.add('hidden');
+    UI.welcomeMsg.innerText = `Olá, ${playerName}!`;
+    UI.welcomeMsg.classList.remove('hidden');
 
-    startBtn.innerText = "JOGAR";
-    startBtn.onclick = () => {
-        startScreenEl.classList.add('hidden');
+    UI.startBtn.innerText = "JOGAR";
+    UI.startBtn.onclick = () => {
+        UI.startScreenEl.classList.add('hidden');
         startGame();
     };
 
-    // Show logout
-    logoutBtn.classList.remove('hidden');
+    UI.logoutBtn.classList.remove('hidden');
 }
 
 function showNameCreationUI() {
-    // User is logged in but table has no row
-    authContainer.classList.add('hidden');
-    profileContainer.classList.remove('hidden');
+    UI.authContainer.classList.add('hidden');
+    UI.profileContainer.classList.remove('hidden');
 
-    nameInput.classList.remove('hidden');
-    welcomeMsg.classList.add('hidden');
-    startBtn.innerText = "Salvar Nome e Jogar";
+    UI.nameInput.classList.remove('hidden');
+    UI.welcomeMsg.classList.add('hidden');
+    UI.startBtn.innerText = "Salvar Nome e Jogar";
 
-    startBtn.onclick = async () => {
-        const name = nameInput.value.trim().toUpperCase();
+    UI.startBtn.onclick = async () => {
+        const name = UI.nameInput.value.trim().toUpperCase();
         if (name.length === 0) {
             alert("Escolha um nome!");
             return;
         }
 
-        startBtn.disabled = true;
+        UI.startBtn.disabled = true;
         const result = await createProfile(name);
         if (result.success) {
-            showAuthenticatedUI(name); // Refresh UI
-            startScreenEl.classList.add('hidden');
+            showAuthenticatedUI(name);
+            UI.startScreenEl.classList.add('hidden');
             startGame();
         } else {
-            startBtn.disabled = false;
+            UI.startBtn.disabled = false;
             if (result.error === 'NAME_TAKEN') alert("Nome já existe! Escolha outro.");
             else alert("Erro: " + result.error);
         }
     };
 }
 
-// Global Auth Listeners
-
-// Helper Functions
-function showMsg(msg, isError = false) {
-    if (authMessageEl) {
-        authMessageEl.innerText = msg;
-        authMessageEl.style.color = isError ? '#ff4444' : '#ffcc00';
-    } else {
-        console.log(msg);
-        if (isError) alert(msg);
-    }
-}
-
-function showSignupMsg(msg, isError = false) {
-    if (signupMessageEl) {
-        signupMessageEl.innerText = msg;
-        signupMessageEl.style.color = isError ? '#ff4444' : '#ffcc00';
-    }
-}
-
-async function handleLogin() {
-    const email = emailInput.value.trim();
-    const password = passwordInput.value.trim();
-    if (!email || !password) {
-        showMsg("Preencha email e senha.", true);
-        return;
-    }
-
-    loginBtn.innerText = "...";
-    showMsg("Entrando...");
-
-    const res = await signInWithPassword(email, password);
-    loginBtn.innerText = "Entrar";
-
-    if (res.success) {
-        showMsg("Sucesso! Recarregando...");
-        setTimeout(() => window.location.reload(), 500);
-    } else {
-        showMsg("Erro: " + res.error, true);
-    }
-}
-
-// Modal Logic
-if (signupOpenBtn) {
-    signupOpenBtn.addEventListener('click', () => {
-        if (signupModal) {
-            signupModal.classList.remove('hidden');
-            showSignupMsg("");
-        }
-    });
-}
-
-if (signupCancelBtn) {
-    signupCancelBtn.addEventListener('click', () => {
-        if (signupModal) signupModal.classList.add('hidden');
-    });
-}
-
-async function handleSignUp() {
-    const email = signupEmailInput.value.trim();
-    const password = signupPassInput.value.trim();
-    const confirm = signupConfirmInput.value.trim();
-
-    if (!email || !password) {
-        showSignupMsg("Preencha todos os campos.", true);
-        return;
-    }
-    if (password !== confirm) {
-        showSignupMsg("As senhas não coincidem!", true);
-        return;
-    }
-
-    signupSubmitBtn.innerText = "...";
-    showSignupMsg("Cadastrando...");
-
-    const res = await signUp(email, password);
-    signupSubmitBtn.innerText = "Finalizar";
-
-    if (res.success) {
-        if (res.data.session) {
-            showSignupMsg("Conta criada! Entrando...");
-            setTimeout(() => window.location.reload(), 1000);
-        } else {
-            // Email confirmation required case
-            if (signupModal) signupModal.classList.add('hidden');
-            showMsg("Verifique seu email para confirmar.", false);
-            alert("Caso seu email esteja correto, enviamos uma confirmação para " + email);
-        }
-    } else {
-        if (res.error && (res.error.includes("User already registered") || res.error.includes("already registered"))) {
-            showSignupMsg("Email já cadastrado!", true);
-        } else {
-            showSignupMsg("Erro: " + res.error, true);
-        }
-    }
-}
-
-if (loginBtn) loginBtn.addEventListener('click', handleLogin);
-if (signupSubmitBtn) signupSubmitBtn.addEventListener('click', handleSignUp);
-if (exitGameBtn) {
-    exitGameBtn.addEventListener('click', () => {
-        window.location.reload();
-    });
-}
-
-if (logoutBtn) {
-    logoutBtn.addEventListener('click', async () => {
-        await signOut();
-        window.location.reload();
-    });
-}
-
-// Initial Load
-// Initial Load
-async function init() {
-    try {
-        await loadLeaderboard(); // Await this now
-        const session = await getSession();
-
-        if (!session) {
-            // State 1: Not Logged In
-            authContainer.classList.remove('hidden');
-            profileContainer.classList.add('hidden');
-            if (leaderboardList && leaderboardList.innerHTML === '<li>Carregando...</li>') {
-                leaderboardList.innerHTML = '<li>Erro ao carregar ranking</li>';
-            }
-        } else {
-            // Logged In
-            if (logoutBtn) logoutBtn.classList.remove('hidden');
-            authContainer.classList.add('hidden');
-
-            const profile = await getMyProfile();
-            if (profile) {
-                // State 3: Has Profile
-                showAuthenticatedUI(profile.name);
-            } else {
-                // State 2: Needs Name
-                showNameCreationUI();
-            }
-        }
-    } catch (e) {
-        console.error("Init Error:", e);
-        if (leaderboardList) leaderboardList.innerHTML = '<li>Erro de Conexão</li>';
-        showMsg("Erro ao iniciar: " + e.message, true);
-    }
-}
-
-
-
-init();
-
-// Load Leaderboard on Init
 async function loadLeaderboard() {
-    if (leaderboardList) {
-        leaderboardList.innerHTML = '<li>Carregando...</li>';
+    if (UI.leaderboardList) {
+        UI.leaderboardList.innerHTML = '<li>Carregando...</li>';
         const scores = await getTopScores(10);
-        leaderboardList.innerHTML = '';
-        if (scores.length === 0) {
-            leaderboardList.innerHTML = '<li>Sem pontuações ainda</li>';
-        }
-        scores.forEach((s, i) => {
-            const li = document.createElement('li');
-            li.innerHTML = `<span>${i + 1}. ${s.name}</span><span>${s.score}</span>`;
-            leaderboardList.appendChild(li);
-        });
+        UI.updateLeaderboardUI(UI.leaderboardList, scores, playerName, 0);
     }
 }
 
-// Objects
-const player = {
-    x: GAME_WIDTH / 2,
-    y: GAME_HEIGHT / 2,
-    width: 32, // Hitbox size
-    height: 32,
-    speed: 3,
-    targetX: GAME_WIDTH / 2,
-    targetY: GAME_HEIGHT / 2,
-    shootTimer: 0,
-    shootInterval: 1000,
-    // Animation
-    currentFrame: 0,
-    maxFrames: 6, // Default for walk
-    frameTimer: 0,
-    frameInterval: 100,
-    state: 'idle', // walk, throw, walkAttack, idle
-    attackTimer: 0, // Time remaining for attack animation
-    attackDuration: 500, // ms
-    sprites: {
-        idle: { img: idleImg, frames: 4 },
-        walk: { img: walkImg, frames: 6 },
-        throw: { img: throwImg, frames: 4 },
-        walkAttack: { img: walkAttackImg, frames: 6 }
-    },
-    isMoving: false
-};
-
-let projectiles = [];
-let enemies = [];
-let particles = [];
-
-// Input
-let isMouseDown = false;
-canvas.addEventListener('mousedown', (e) => {
-    if (gamePaused) return;
-    isMouseDown = true;
-    updateTarget(e);
-});
-canvas.addEventListener('mouseup', () => isMouseDown = false);
-canvas.addEventListener('mousemove', (e) => {
-    if (isMouseDown && !gamePaused) {
-        updateTarget(e);
-    }
-});
-
-// Pause Input
-window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && gameActive) {
-        togglePause();
-    }
-});
-
-resumeBtn.addEventListener('click', togglePause);
-
-async function togglePause() {
-    gamePaused = !gamePaused;
-    if (gamePaused) {
-        pauseMenuEl.classList.remove('hidden');
-        // Fetch and show leaderboard
-        updatePauseLeaderboard();
-    } else {
-        pauseMenuEl.classList.add('hidden');
-        lastTime = performance.now(); // Reset delta so we don't jump
-        requestAnimationFrame(gameLoop);
-    }
-}
-
-async function updatePauseLeaderboard() {
-    pauseLeaderboardList.innerHTML = '<li>Carregando...</li>';
-    const topScores = await getTopScores(10);
-    pauseLeaderboardList.innerHTML = '';
-
-    let playerInTop10 = false;
-    const currentBest = parseInt(localStorage.getItem('dinoRogueBest') || 0);
-
-    topScores.forEach((s, i) => {
-        const li = document.createElement('li');
-        // Relaxed check: Highlight if name matches (simplifies logic for multiple tabs/devices)
-        const sName = s.name ? s.name.trim().toUpperCase() : '';
-        const pName = playerName ? playerName.trim().toUpperCase() : '';
-
-        const isMe = (sName === pName && pName.length > 0);
-
-        if (isMe) playerInTop10 = true;
-        if (isMe) li.classList.add('highlight-row');
-
-        li.innerHTML = `<span>${i + 1}. ${s.name}</span><span>${s.score}</span>`;
-        pauseLeaderboardList.appendChild(li);
-    });
-
-    if (!playerInTop10) {
-        // Fetch specific rank
-        const rank = await getUserRank(currentBest);
-        if (rank > 0) {
-            // Only show dots if we have items above us
-            if (pauseLeaderboardList.children.length > 0) {
-                const dots = document.createElement('li');
-                dots.innerHTML = '<span style="text-align:center; width:100%">...</span>';
-                pauseLeaderboardList.appendChild(dots);
-            }
-
-            const meLi = document.createElement('li');
-            meLi.classList.add('highlight-row');
-            meLi.innerHTML = `<span>${rank}. ${playerName}</span><span>${currentBest}</span>`;
-            pauseLeaderboardList.appendChild(meLi);
-        }
-    }
-}
-
-function updateTarget(e) {
-    if (!gameActive || gamePaused) return;
-    const rect = canvas.getBoundingClientRect();
-    player.targetX = e.clientX - rect.left;
-    player.targetY = e.clientY - rect.top;
-}
-
-// Restart
-gameOverEl.addEventListener('click', () => {
-    restartGame();
-});
+// --- Game Control ---
 
 function startGame() {
     restartGame();
@@ -429,255 +203,299 @@ function restartGame() {
     gamePaused = false;
     score = 0;
     difficultyMultiplier = 1;
-    player.x = GAME_WIDTH / 2;
-    player.y = GAME_HEIGHT / 2;
-    player.targetX = GAME_WIDTH / 2;
-    player.targetY = GAME_HEIGHT / 2;
+
+    player.reset();
+
+    // Release all active entities back to pool
+    projectiles.forEach(p => poolManager.release('projectile', p));
+    enemies.forEach(e => poolManager.release('enemy', e));
+    damageTexts.forEach(t => poolManager.release('text', t)); // Release text
+
     projectiles = [];
     enemies = [];
     particles = [];
-    gameOverEl.classList.add('hidden');
-    scoreEl.innerText = `Pontos: ${score}`;
-    lastTime = performance.now(); // Reset time to avoid huge delta
-    requestAnimationFrame(gameLoop);
-}
+    damageTexts = [];
+    lootManager.reset();
 
-// Classes/Factories
-class Projectile {
-    constructor(x, y, angle) {
-        this.x = x;
-        this.y = y;
-        this.radius = 4;
-        this.speed = 8;
-        this.vx = Math.cos(angle) * this.speed;
-        this.vy = Math.sin(angle) * this.speed;
-        this.markedForDeletion = false;
-    }
-    update() {
-        this.x += this.vx;
-        this.y += this.vy;
+    UI.gameOverEl.classList.add('hidden');
+    UI.scoreEl.innerText = `Pontos: ${score}`;
 
-        if (this.x < 0 || this.x > GAME_WIDTH || this.y < 0 || this.y > GAME_HEIGHT) {
-            this.markedForDeletion = true;
-        }
-    }
-    draw(context) {
-        context.fillStyle = '#ff0';
-        context.beginPath();
-        context.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-        context.fill();
-    }
-}
+    player.initSprites();
+    camera.follow(player);
 
-class Enemy {
-    constructor() {
-        // Spawn at random edge
-        if (Math.random() < 0.5) {
-            this.x = Math.random() < 0.5 ? -20 : GAME_WIDTH + 20;
-            this.y = Math.random() * GAME_HEIGHT;
-        } else {
-            this.x = Math.random() * GAME_WIDTH;
-            this.y = Math.random() < 0.5 ? -20 : GAME_HEIGHT + 20;
-        }
-
-        this.speed = 1 + (Math.random() * 0.5 * difficultyMultiplier);
-        this.size = 16;
-        this.markedForDeletion = false;
-        this.angle = 0;
-    }
-    update() {
-        const dx = player.x - this.x;
-        const dy = player.y - this.y;
-        this.angle = Math.atan2(dy, dx);
-        this.x += Math.cos(this.angle) * this.speed;
-        this.y += Math.sin(this.angle) * this.speed;
-    }
-    draw(context) {
-        context.fillStyle = '#0f0'; // Matrix green
-        context.font = '24px "VT323"';
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        context.fillText('@', this.x, this.y);
-    }
-}
-
-// Game Loop
-function gameLoop(timestamp) {
-    if (!gameActive || gamePaused) return;
-
-    let deltaTime = timestamp - lastTime;
-    lastTime = timestamp;
-    if (deltaTime > 100) deltaTime = 100; // Cap large deltas
-
-    ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-    // Draw Background
-    if (bgPattern) {
-        ctx.fillStyle = bgPattern;
-        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-    } else {
-        ctx.fillStyle = '#222';
-        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-    }
-
-    // Logic
-    spawnTimer += deltaTime;
-    if (spawnTimer > 1000) { // 1 sec base spawn
-        spawnTimer = 0;
-        difficultyMultiplier += 0.01;
-
-        // Spawn chance based on difficulty
-        const spawnCount = Math.floor(difficultyMultiplier);
-        for (let i = 0; i < spawnCount; i++) {
-            enemies.push(new Enemy());
-        }
-        if (Math.random() < (difficultyMultiplier % 1)) {
-            enemies.push(new Enemy());
-        }
-    }
-
-    // Update Player
-    const dx = player.targetX - player.x;
-    const dy = player.targetY - player.y;
-    const distance = Math.hypot(dx, dy);
-
-    if (distance > player.speed) {
-        player.x += (dx / distance) * player.speed;
-        player.y += (dy / distance) * player.speed;
-        player.isMoving = true;
-    } else {
-        player.x = player.targetX;
-        player.y = player.targetY;
-        player.isMoving = false;
-    }
-
-    // Auto Shoot
-    player.shootTimer += deltaTime;
-    if (player.shootTimer > player.shootInterval) {
-        // Find nearest enemy
-        let nearest = null;
-        let minDist = Infinity;
-        enemies.forEach(e => {
-            const d = Math.hypot(e.x - player.x, e.y - player.y);
-            if (d < minDist) {
-                minDist = d;
-                nearest = e;
-            }
-        });
-
-        if (nearest) {
-            const angle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
-            projectiles.push(new Projectile(player.x, player.y, angle));
-            player.shootTimer = 0;
-            player.attackTimer = player.attackDuration; // Trigger logic check
-        }
-    }
-
-    // Update Projectiles
-    projectiles.forEach(p => p.update());
-    projectiles = projectiles.filter(p => !p.markedForDeletion);
-
-    // Update Enemies & Collisions
-    enemies.forEach(e => {
-        e.update();
-
-        // Player Collision
-        const distPlayer = Math.hypot(e.x - player.x, e.y - player.y);
-        if (distPlayer < player.width / 2 + e.size / 2) {
-            gameOver();
-        }
-
-        // Projectile Collision
-        projectiles.forEach(p => {
-            const distProj = Math.hypot(e.x - p.x, e.y - p.y);
-            if (distProj < e.size / 2 + p.radius) {
-                e.markedForDeletion = true;
-                p.markedForDeletion = true;
-                score += 10;
-                scoreEl.innerText = `Pontos: ${score}`;
-            }
-        });
-    });
-    enemies = enemies.filter(e => !e.markedForDeletion);
-
-    // Draw Entities
-    projectiles.forEach(p => p.draw(ctx));
-
-    // Draw Player
-    // Draw Player
-
-    // Update State
-    if (player.attackTimer > 0) {
-        player.attackTimer -= deltaTime;
-        if (player.isMoving) {
-            player.state = 'walkAttack';
-        } else {
-            player.state = 'throw';
-        }
-    } else {
-        if (player.isMoving) {
-            player.state = 'walk';
-        } else {
-            player.state = 'idle';
-        }
-    }
-
-    const currentSprite = player.sprites[player.state];
-    player.maxFrames = currentSprite.frames;
-
-    if (currentSprite.img.complete && currentSprite.img.width > 0) {
-        // Animation Logic
-        player.frameTimer += deltaTime;
-        if (player.frameTimer > player.frameInterval) {
-            player.currentFrame++;
-            if (player.currentFrame >= player.maxFrames) player.currentFrame = 0;
-            player.frameTimer = 0;
-        }
-
-        // 1 Row Horizontal Strip Logic
-        const cols = player.maxFrames;
-        const rows = 1;
-        const frameWidth = currentSprite.img.width / cols;
-        const frameHeight = currentSprite.img.height / rows;
-
-        const col = player.currentFrame % cols;
-        const row = 0;
-
-        // Fixed render size
-        const renderedSize = 64;
-
-        ctx.drawImage(
-            currentSprite.img,
-            col * frameWidth, row * frameHeight, frameWidth, frameHeight,
-            player.x - renderedSize / 2, player.y - renderedSize / 2,
-            renderedSize, renderedSize
-        );
-    } else {
-        ctx.fillStyle = '#eb4034';
-        ctx.fillRect(player.x - 16, player.y - 16, 32, 32);
-    }
-
-    enemies.forEach(e => e.draw(ctx));
-
+    lastTime = performance.now();
     requestAnimationFrame(gameLoop);
 }
 
 function gameOver() {
     gameActive = false;
-    gameOverEl.classList.remove('hidden');
-    finalScoreEl.innerText = `Pontos: ${score}`;
+    UI.gameOverEl.classList.remove('hidden');
+    UI.finalScoreEl.innerText = `Pontos: ${score}`;
 
-    // Local High Score (Just to show, auth is truth)
     const localBest = parseInt(localStorage.getItem('dinoRogueBest') || 0);
     if (score > localBest) {
         localStorage.setItem('dinoRogueBest', score);
-        bestScoreEl.innerText = `Melhor: ${score} (NOVO!)`;
+        UI.bestScoreEl.innerText = `Melhor: ${score} (NOVO!)`;
     } else {
-        bestScoreEl.innerText = `Melhor: ${localBest}`;
+        UI.bestScoreEl.innerText = `Melhor: ${localBest}`;
     }
 
-    // Submit Global Score (Auth handled)
     updateBestScore(score).then(() => {
         console.log("Score updated if better.");
     });
+}
+
+// --- Game Logic ---
+// Pause Logic
+window.addEventListener('keydown', (e) => {
+    // InputManager handles movement keys, but we can keep global UI keys here or move to InputManager
+    if (e.key === 'Escape' && gameActive) {
+        togglePause();
+    }
+});
+
+if (UI.resumeBtn) UI.resumeBtn.addEventListener('click', togglePause);
+if (UI.exitGameBtn) UI.exitGameBtn.addEventListener('click', () => window.location.reload());
+
+// Restart Listener
+UI.gameOverEl.addEventListener('click', () => {
+    restartGame();
+});
+
+async function togglePause() {
+    gamePaused = !gamePaused;
+    if (gamePaused) {
+        UI.pauseMenuEl.classList.remove('hidden');
+        updatePauseLeaderboard();
+    } else {
+        UI.pauseMenuEl.classList.add('hidden');
+        lastTime = performance.now();
+        requestAnimationFrame(gameLoop);
+    }
+}
+
+async function updatePauseLeaderboard() {
+    if (UI.pauseLeaderboardList) {
+        UI.pauseLeaderboardList.innerHTML = '<li>Carregando...</li>';
+        const topScores = await getTopScores(10);
+        UI.pauseLeaderboardList.innerHTML = ''; // Clear loading
+
+        let playerInTop10 = false;
+        const currentBest = parseInt(localStorage.getItem('dinoRogueBest') || 0);
+        const pName = playerName ? playerName.trim().toUpperCase() : '';
+
+        topScores.forEach((s, i) => {
+            const li = document.createElement('li');
+            const sName = s.name ? s.name.trim().toUpperCase() : '';
+            const isMe = (sName === pName && pName.length > 0);
+
+            if (isMe) {
+                playerInTop10 = true;
+                li.classList.add('highlight-row');
+            }
+            li.innerHTML = `<span>${i + 1}. ${s.name}</span><span>${s.score}</span>`;
+            UI.pauseLeaderboardList.appendChild(li);
+        });
+
+        if (!playerInTop10 && currentBest > 0 && pName.length > 0) {
+            const rank = await getUserRank(currentBest);
+            if (rank > 0) {
+                if (UI.pauseLeaderboardList.children.length > 0) {
+                    const dots = document.createElement('li');
+                    dots.innerHTML = '<span style="text-align:center; width:100%">...</span>';
+                    UI.pauseLeaderboardList.appendChild(dots);
+                }
+                const meLi = document.createElement('li');
+                meLi.classList.add('highlight-row');
+                meLi.innerHTML = `<span>${rank}. ${playerName}</span><span>${currentBest}</span>`;
+                UI.pauseLeaderboardList.appendChild(meLi);
+            }
+        }
+    }
+}
+
+// --- Game Loop ---
+
+function gameLoop(timestamp) {
+    if (!gameActive || gamePaused) return;
+
+    let deltaTime = timestamp - lastTime;
+    lastTime = timestamp;
+    if (deltaTime > 100) deltaTime = 100;
+
+    // --- 1. Update Logic ---
+
+    // Wave Management (Spawning)
+    const waveContext = {
+        poolManager,
+        enemies,
+        player,
+        gameWidth: GAME_WIDTH,
+        gameHeight: GAME_HEIGHT
+    };
+    waveManager.update(deltaTime, waveContext);
+
+    // Updates
+    player.update(deltaTime, inputManager, enemies, projectiles, poolManager);
+
+    // Weapon System Update
+    // Pass necessary context for weapons to find targets and spawn projectiles
+    const combatContext = { player, enemies, poolManager, projectiles };
+    evolutionManager.update(deltaTime, combatContext);
+
+    // Loot Update
+    lootManager.update(deltaTime, player);
+
+    // Visual FX Update
+    damageTexts.forEach(t => t.update(deltaTime));
+
+    // Cleanup Floating Text
+    for (let i = damageTexts.length - 1; i >= 0; i--) {
+        const t = damageTexts[i];
+        if (t.markedForDeletion) {
+            poolManager.release('text', t);
+            damageTexts.splice(i, 1);
+        }
+    }
+
+    camera.update(deltaTime);
+
+    // Projectiles
+    projectiles.forEach(p => p.update());
+
+    // Enemies (with Steering using neighbors)
+    enemies.forEach(e => e.update(player.x, player.y, enemies));
+
+    // Collisions
+    // Player vs Enemy
+    for (const e of enemies) {
+        if (!e.active) continue;
+        const distPlayer = Math.hypot(e.x - player.x, e.y - player.y);
+        // Collision: Player Radius (16) + Enemy Radius (8)
+        if (distPlayer < player.width / 2 + e.size / 2) {
+            gameOver();
+            return; // Stop frame
+        }
+    }
+
+    // Projectile vs Enemy
+    for (const p of projectiles) {
+        if (!p.active) continue;
+        for (const e of enemies) {
+            if (!e.active) continue;
+
+            const distProj = Math.hypot(e.x - p.x, e.y - p.y);
+            if (distProj < e.size / 2 + p.radius) {
+                e.markedForDeletion = true;
+                p.markedForDeletion = true;
+                score += 10;
+
+                // Spawn Loot
+                lootManager.spawnLoot(e.x, e.y, 'xp', 20);
+
+                // Spawn Damage Text
+                const txt = poolManager.get('text');
+                const txtX = e.x + (Math.random() * 20 - 10);
+                const txtY = e.y + (Math.random() * 20 - 10);
+                if (txt) { // Safety
+                    txt.reset(txtX, txtY, "15", "#fff");
+                    damageTexts.push(txt);
+                }
+
+                UI.scoreEl.innerText = `Pontos: ${score} - Lv ${player.stats.level}`;
+            }
+        }
+    }
+
+    // Cleanup (Release to Pool)
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+        const p = projectiles[i];
+        if (p.markedForDeletion) {
+            poolManager.release('projectile', p);
+            projectiles.splice(i, 1);
+        }
+    }
+
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        if (e.markedForDeletion) {
+            poolManager.release('enemy', e);
+            enemies.splice(i, 1);
+        }
+    }
+
+
+    // --- 2. Render ---
+    ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // Camera Transform Start
+    camera.apply(ctx);
+
+    // Draw Background (Static relative to view)
+    // To make background "infinite" or at least cover the screen, we draw around the camera.
+    // For now, let's just fill the camera view.
+    if (bgPattern) {
+        ctx.fillStyle = bgPattern;
+        // Optimization: only fill relevant area or use transform
+        // Simple: fillRect using camera coordinates
+        ctx.save();
+        ctx.translate(camera.x, camera.y); // Counteract camera apply to draw "screen space" pattern? 
+        // No, we want world space pattern.
+        // Actually ctx.fillStyle pattern is usually fixed to origin.
+        ctx.fillRect(-camera.x, -camera.y, GAME_WIDTH + camera.x * 2, GAME_HEIGHT + camera.y * 2); // This is hacky.
+        // Better:
+        ctx.restore();
+
+        // Simple fallback: Fill a huge rect
+        ctx.fillRect(camera.x - 100, camera.y - 100, GAME_WIDTH + 200, GAME_HEIGHT + 200);
+    } else {
+        ctx.fillStyle = '#222';
+        ctx.fillRect(camera.x, camera.y, GAME_WIDTH, GAME_HEIGHT);
+    }
+
+    // Draw Loot (Under player/enemies)
+    lootManager.draw(ctx);
+
+    player.draw(ctx, deltaTime);
+    enemies.forEach(e => e.draw(ctx));
+    projectiles.forEach(p => p.draw(ctx));
+
+    // Draw FX
+    damageTexts.forEach(t => t.draw(ctx));
+
+    // Camera Transform End (Restore for UI)
+    camera.reset(ctx);
+
+    // Draw HUD (On top of everything, screen space)
+    drawHUD(ctx);
+
+    requestAnimationFrame(gameLoop);
+}
+
+function drawHUD(ctx) {
+    // XP Bar
+    const barWidth = GAME_WIDTH - 40;
+    const barHeight = 20;
+    const x = 20;
+    const y = GAME_HEIGHT - 40;
+
+    // Bg
+    ctx.fillStyle = '#444';
+    ctx.fillRect(x, y, barWidth, barHeight);
+
+    // Fill
+    const xpPercent = Math.min(1, player.stats.xp / player.stats.nextLevelXp);
+    ctx.fillStyle = '#00ccff';
+    ctx.fillRect(x, y, barWidth * xpPercent, barHeight);
+
+    // Border
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, barWidth, barHeight);
+
+    // Text
+    ctx.fillStyle = '#fff';
+    ctx.font = '16px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Level ${player.stats.level} (${Math.floor(player.stats.xp)}/${player.stats.nextLevelXp})`, GAME_WIDTH / 2, y + 16);
 }
