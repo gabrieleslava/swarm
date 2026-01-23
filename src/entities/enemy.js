@@ -10,7 +10,9 @@ export class Enemy {
     reset(difficultyMultiplier = 1) {
         // Position is now set by WaveManager immediately after reset
         // We initialize to 0 or keep previous to avoid undefined
-        this.speed = 1 + (Math.random() * 0.5 * difficultyMultiplier);
+        // User request: Start slower, scale progressively.
+        // Base 0.6 (slower than player 3.0), + 0.1 per difficulty level
+        this.speed = 0.6 + (Math.random() * 0.2 * difficultyMultiplier);
         this.markedForDeletion = false;
         this.angle = 0;
         this.active = true;

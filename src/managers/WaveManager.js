@@ -50,11 +50,20 @@ export class WaveManager {
         const wave = this._getCurrentWave();
         if (!wave) return;
 
+        // Dynamic Difficulty Scaling
+        // User Request: "Accelerate a bit every 5 minutes"
+        // 5 minutes = 300 seconds
+        // Increase multiplicator by 0.5 every 5 minutes
+        const timeFactor = Math.floor(this.gameTime / 300);
+        const dynamicDifficulty = wave.difficulty + (timeFactor * 0.5);
+
         // Spawn Logic
         this.spawnTimer += deltaTime;
+        // Decrease spawn interval as difficulty rises? Optional.
+        // For now, just pass difficulty to enemy stats.
         if (this.spawnTimer >= wave.spawnInterval) {
             this.spawnTimer = 0;
-            this._spawnEnemies(wave, context);
+            this._spawnEnemies(wave, context, dynamicDifficulty);
         }
     }
 
@@ -72,14 +81,14 @@ export class WaveManager {
         return this.waves[0];
     }
 
-    _spawnEnemies(wave, context) {
+    _spawnEnemies(wave, context, difficulty) {
         const { poolManager, enemies, player, gameWidth, gameHeight } = context;
 
         // Pattern Strategy
         if (wave.pattern === 'edge') {
-            this._spawnEdge(poolManager, enemies, gameWidth, gameHeight, wave.difficulty);
+            this._spawnEdge(poolManager, enemies, gameWidth, gameHeight, difficulty);
         } else if (wave.pattern === 'circle') {
-            this._spawnCircle(poolManager, enemies, player, 10, wave.difficulty); // Spawn batch of 10
+            this._spawnCircle(poolManager, enemies, player, 10, difficulty); // Spawn batch of 10
         }
     }
 
