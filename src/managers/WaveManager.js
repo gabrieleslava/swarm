@@ -11,7 +11,7 @@ export class WaveManager {
             {
                 startTime: 0,
                 duration: 60, // 0-60s
-                spawnInterval: 1000,
+                spawnInterval: 250, // Much faster for density vs slow enemies
                 pattern: 'edge',
                 difficulty: 1,
                 enemyType: 'basic'
@@ -19,7 +19,7 @@ export class WaveManager {
             {
                 startTime: 60,
                 duration: 30, // 60-90s
-                spawnInterval: 500, // Faster
+                spawnInterval: 150, // Very Fast
                 pattern: 'edge',
                 difficulty: 1.5,
                 enemyType: 'basic'

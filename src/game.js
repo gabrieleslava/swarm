@@ -41,11 +41,12 @@ const waveManager = new WaveManager();
 const lootManager = new LootManager(poolManager);
 
 // Initialize Pools
-poolManager.createPool('enemy', () => new Enemy(), 100);
+// Increased sizes to prevent "disappearing" entities during high density waves
+poolManager.createPool('enemy', () => new Enemy(), 500);
 poolManager.createPool('boss', () => new Boss(), 1);
-poolManager.createPool('projectile', () => new Projectile(0, 0, 0), 50);
-poolManager.createPool('pickup', () => new Pickup(), 50);
-poolManager.createPool('text', () => new FloatingText(), 20);
+poolManager.createPool('projectile', () => new Projectile(0, 0, 0), 500);
+poolManager.createPool('pickup', () => new Pickup(), 200);
+poolManager.createPool('text', () => new FloatingText(), 100);
 
 // Entities Lists
 let projectiles = [];
@@ -393,10 +394,19 @@ function gameLoop(timestamp) {
         const distPlayer = Math.hypot(e.x - player.x, e.y - player.y);
         // Collision: Player Radius (16) + Enemy Radius (8)
         if (distPlayer < player.width / 2 + e.size / 2) {
-            gameOver();
-            return; // Stop frame
+            if (!player.immunityTimer || player.immunityTimer <= 0) {
+                if (player.takeDamage(e.damage || 10)) {
+                    gameOver();
+                    return;
+                }
+                player.immunityTimer = 500; // 0.5s immunity
+                if (audioManager) audioManager.playHit();
+            }
         }
     }
+
+    // Update Immunity
+    if (player.immunityTimer > 0) player.immunityTimer -= deltaTime;
 
     // Projectile vs Enemy
     for (const p of projectiles) {
@@ -406,26 +416,30 @@ function gameLoop(timestamp) {
 
             const distProj = Math.hypot(e.x - p.x, e.y - p.y);
             if (distProj < e.size / 2 + p.radius) {
-                e.markedForDeletion = true;
-                p.markedForDeletion = true;
-                score += 10;
+                // Apply Damage
+                const damage = p.damage || 10;
+                const isDead = e.takeDamage(damage);
 
-                // Spawn Loot
-                lootManager.spawnLoot(e.x, e.y, 'xp', 20);
+                p.markedForDeletion = true;
 
                 // Spawn Damage Text
                 const txt = poolManager.get('text');
                 const txtX = e.x + (Math.random() * 20 - 10);
                 const txtY = e.y + (Math.random() * 20 - 10);
-                if (txt) { // Safety
-                    txt.reset(txtX, txtY, "15", "#fff");
+                if (txt) {
+                    txt.reset(txtX, txtY, Math.floor(damage).toString(), isDead ? "#ffcc00" : "#fff");
                     damageTexts.push(txt);
                 }
 
-                // Audio
-                audioManager.playHit();
+                if (isDead) {
+                    e.markedForDeletion = true;
+                    score += 10;
 
-                UI.scoreEl.innerText = `Pontos: ${score} - Lv ${player.stats.level}`;
+                    // Spawn Loot
+                    lootManager.spawnLoot(e.x, e.y, 'xp', 20);
+
+                    UI.scoreEl.innerText = `Pontos: ${score} - Lv ${player.stats.level}`;
+                }
             }
         }
     }

@@ -37,6 +37,7 @@ export const player = {
     stats: {
         moveSpeed: 3,
         maxHealth: 100,
+        currentHealth: 100, // Added
         pickupRadius: 100, // Increased
         abilityHaste: 0,
         xp: 0,
@@ -55,11 +56,21 @@ export const player = {
         this.stats.xp -= this.stats.nextLevelXp;
         this.stats.level++;
         this.stats.nextLevelXp = Math.floor(this.stats.nextLevelXp * 1.5);
+        this.stats.currentHealth = this.stats.maxHealth; // Heal on level
         console.log("Level Up! " + this.stats.level);
 
         if (this.onLevelUp) {
             this.onLevelUp(this.stats.level);
         }
+    },
+
+    takeDamage(amount) {
+        this.stats.currentHealth -= amount;
+        if (this.stats.currentHealth <= 0) {
+            this.stats.currentHealth = 0;
+            return true; // Died
+        }
+        return false;
     },
 
     // Physics
@@ -72,6 +83,13 @@ export const player = {
         this.shootTimer = 0;
         this.state = 'idle';
         this.isMoving = false;
+
+        // Reset Stats
+        this.stats.currentHealth = this.stats.maxHealth;
+        this.stats.xp = 0;
+        this.stats.level = 1;
+        this.stats.nextLevelXp = 100;
+        this.stats.moveSpeed = 3;
     },
 
     update(deltaTime, inputManager, enemies, projectiles, poolManager) {
@@ -152,5 +170,16 @@ export const player = {
             ctx.fillStyle = '#eb4034';
             ctx.fillRect(this.x - 16, this.y - 16, 32, 32);
         }
+
+        // Draw Health Bar (World Space, below player)
+        const barW = 40;
+        const barH = 5;
+        const hpPct = this.stats.currentHealth / this.stats.maxHealth;
+
+        ctx.fillStyle = 'red';
+        ctx.fillRect(this.x - barW / 2, this.y + 20, barW, barH);
+
+        ctx.fillStyle = '#0f0';
+        ctx.fillRect(this.x - barW / 2, this.y + 20, barW * hpPct, barH);
     }
 };

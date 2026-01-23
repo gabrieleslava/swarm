@@ -11,11 +11,27 @@ export class Enemy {
         // Position is now set by WaveManager immediately after reset
         // We initialize to 0 or keep previous to avoid undefined
         // User request: Start slower, scale progressively.
-        // Base 0.6 (slower than player 3.0), + 0.1 per difficulty level
-        this.speed = 0.6 + (Math.random() * 0.2 * difficultyMultiplier);
+        // Base 0.3 (very slow start), + 0.1 per difficulty level
+        // Previous was 0.6
+        this.speed = 0.3 + (Math.random() * 0.1 * difficultyMultiplier);
         this.markedForDeletion = false;
         this.angle = 0;
         this.active = true;
+
+        // HP Scaling
+        // Base 20 + 10 * difficulty
+        this.maxHp = 20 + (10 * difficultyMultiplier);
+        this.hp = this.maxHp;
+        this.damage = 10 + (2 * difficultyMultiplier); // Damage to player
+    }
+
+    takeDamage(amount) {
+        this.hp -= amount;
+        if (this.hp <= 0) {
+            this.hp = 0;
+            return true; // Died
+        }
+        return false;
     }
 
     update(playerX, playerY, otherEnemies = []) {
