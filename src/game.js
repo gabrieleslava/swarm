@@ -70,6 +70,7 @@ let lastTime = 0;
 let spawnTimer = 0;
 let difficultyMultiplier = 1;
 let playerName = '';
+let gameTime = 0; // ms
 
 // Entities Arrays
 
@@ -211,6 +212,7 @@ function restartGame() {
     gamePaused = false;
     score = 0;
     difficultyMultiplier = 1;
+    gameTime = 0;
 
     player.reset();
 
@@ -340,9 +342,11 @@ async function updatePauseLeaderboard() {
 function gameLoop(timestamp) {
     if (!gameActive || gamePaused) return;
 
-    let deltaTime = timestamp - lastTime;
+    const deltaTime = timestamp - lastTime;
     lastTime = timestamp;
-    if (deltaTime > 100) deltaTime = 100;
+    if (deltaTime > 100) return; // Lag spike protection
+
+    gameTime += deltaTime;
 
     // --- 1. Update Logic ---
 
@@ -535,4 +539,14 @@ function drawHUD(ctx) {
     ctx.font = '16px Arial';
     ctx.textAlign = 'center';
     ctx.fillText(`Level ${player.stats.level} (${Math.floor(player.stats.xp)}/${player.stats.nextLevelXp})`, GAME_WIDTH / 2, y + 16);
+
+    // Timer (Top Center)
+    const minutes = Math.floor(gameTime / 60000);
+    const seconds = Math.floor((gameTime % 60000) / 1000);
+    const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px "VT323"';
+    ctx.textAlign = 'center';
+    ctx.fillText(timeStr, GAME_WIDTH / 2, 30);
 }

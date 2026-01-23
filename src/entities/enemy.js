@@ -28,6 +28,12 @@ export class Enemy {
         this.maxHp = 20 + (10 * difficultyMultiplier);
         this.hp = this.maxHp;
         this.damage = 10 + (2 * difficultyMultiplier); // Damage to player
+
+        // Animation
+        this.frame = 0;
+        this.maxFrames = 4;
+        this.frameTimer = 0;
+        this.frameInterval = 150;
     }
 
     takeDamage(amount) {
@@ -74,6 +80,14 @@ export class Enemy {
         this.angle = desiredAngle;
         this.x += Math.cos(this.angle) * this.speed;
         this.y += Math.sin(this.angle) * this.speed;
+
+        // Update Animation Frame
+        this.frameTimer += 16;
+        if (this.frameTimer > this.frameInterval) {
+            this.frame++;
+            if (this.frame >= this.maxFrames) this.frame = 0;
+            this.frameTimer = 0;
+        }
     }
 
     draw(context) {
@@ -91,8 +105,14 @@ export class Enemy {
             }
 
             // Draw Sprite (Centered)
-            const size = 48; // Slightly larger for visuals
-            context.drawImage(img, -size / 2, -size / 2, size, size);
+            const size = 48; // Rendered size
+            const spriteSize = 64; // Source frame size
+
+            context.drawImage(
+                img,
+                this.frame * spriteSize, 0, spriteSize, spriteSize,
+                -size / 2, -size / 2, size, size
+            );
 
             context.restore();
         } else {
