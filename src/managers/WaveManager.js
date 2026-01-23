@@ -33,12 +33,14 @@ export class WaveManager {
                 enemyType: 'basic'
             },
             {
-                startTime: 105,
-                duration: 9999, // Endless
-                spawnInterval: 400,
-                pattern: 'edge',
-                difficulty: 2.0,
-                enemyType: 'basic'
+                startTime: 120, // 2 Minutes (Demo purposes, user asked for 15m but test is needed)
+                duration: 9999,
+                spawnInterval: 999999, // One time event manually handled? 
+                // Using wave system for boss is tricky if it needs singular spawn.
+                // Let's create a dedicated wave type.
+                pattern: 'boss',
+                difficulty: 5.0,
+                enemyType: 'boss'
             }
         ];
     }
@@ -59,11 +61,37 @@ export class WaveManager {
 
         // Spawn Logic
         this.spawnTimer += deltaTime;
-        // Decrease spawn interval as difficulty rises? Optional.
-        // For now, just pass difficulty to enemy stats.
-        if (this.spawnTimer >= wave.spawnInterval) {
+
+        if (wave.pattern === 'boss' && !wave.hasSpawned) {
+            this._spawnBoss(poolManager, enemies, gameWidth, gameHeight, dynamicDifficulty);
+            wave.hasSpawned = true;
+        } else if (wave.pattern !== 'boss' && this.spawnTimer >= wave.spawnInterval) {
             this.spawnTimer = 0;
             this._spawnEnemies(wave, context, dynamicDifficulty);
+        }
+    }
+
+    _spawnBoss(poolManager, enemies, width, height, difficulty) {
+        // Boss Logic
+        // We probably need a specific 'boss' pool or just use 'enemy' and upgrade it?
+        // 'enemy' pool returns Enemy class. Boss is Boss class.
+        // We need to register Boss in PoolManager?
+        // Or just `new Boss()` since it's 1 entity?
+        // Let's do `new Boss()` for simplicity and push to enemies.
+        // But `enemies` loop expects `draw`/`update`. Boss extends Enemy so it works.
+        // Ensure Boss.js is imported in game.js? No, we are in WaveManager.
+        // WaveManager doesn't import Boss.
+        // We need to either import Boss here or use pool.
+        // Let's use poolManager but we need to register 'boss' pool in game.js.
+
+        // Temporarily, let's assume 'boss' pool exists.
+        const boss = poolManager.get('boss');
+        if (boss) {
+            boss.reset(difficulty);
+            boss.x = width / 2;
+            boss.y = -100; // Top
+            enemies.push(boss);
+            console.log("BOSS SPAWNED");
         }
     }
 

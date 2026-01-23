@@ -13,12 +13,14 @@ import * as UI from './ui.js';
 import { initAuthListeners } from './auth-ui.js';
 import { player } from './entities/player.js';
 import { Enemy } from './entities/enemy.js';
+import { Boss } from './entities/Boss.js';
 import { Projectile } from './entities/projectile.js';
 import { Pickup } from './entities/Pickup.js';
 import { FloatingText } from './entities/FloatingText.js';
 
 import { InputManager } from './core/InputManager.js';
 import { PoolManager } from './core/PoolManager.js';
+import { AudioManager } from './core/AudioManager.js';
 import { GameCamera } from './core/GameCamera.js';
 import { EvolutionManager } from './managers/EvolutionManager.js';
 import { WaveManager } from './managers/WaveManager.js';
@@ -32,6 +34,7 @@ canvas.height = GAME_HEIGHT;
 // --- Core Systems ---
 const inputManager = new InputManager();
 const poolManager = new PoolManager();
+const audioManager = new AudioManager();
 const camera = new GameCamera(GAME_WIDTH, GAME_HEIGHT);
 const evolutionManager = new EvolutionManager();
 const waveManager = new WaveManager();
@@ -39,6 +42,7 @@ const lootManager = new LootManager(poolManager);
 
 // Initialize Pools
 poolManager.createPool('enemy', () => new Enemy(), 100);
+poolManager.createPool('boss', () => new Boss(), 1);
 poolManager.createPool('projectile', () => new Projectile(0, 0, 0), 50);
 poolManager.createPool('pickup', () => new Pickup(), 50);
 poolManager.createPool('text', () => new FloatingText(), 20);
@@ -114,6 +118,9 @@ async function init() {
 
 function triggerLevelUp(level) {
     if (!gameActive) return;
+
+    // Audio
+    audioManager.playLevelUp();
 
     // Pause Game
     gamePaused = true;
@@ -223,6 +230,10 @@ function restartGame() {
     player.initSprites();
     camera.follow(player);
 
+    // Audio
+    audioManager.init();
+    audioManager.playStart();
+
     lastTime = performance.now();
     requestAnimationFrame(gameLoop);
 }
@@ -242,6 +253,15 @@ function gameOver() {
 
     updateBestScore(score).then(() => {
         console.log("Score updated if better.");
+    });
+}
+
+// Audio Toggle
+const audioToggleBtn = document.getElementById('audio-toggle-btn');
+if (audioToggleBtn) {
+    audioToggleBtn.addEventListener('click', () => {
+        const isMuted = audioManager.toggleMute();
+        audioToggleBtn.innerText = isMuted ? "🔇 Audio: OFF" : "🔊 Audio: ON";
     });
 }
 
@@ -340,7 +360,7 @@ function gameLoop(timestamp) {
 
     // Weapon System Update
     // Pass necessary context for weapons to find targets and spawn projectiles
-    const combatContext = { player, enemies, poolManager, projectiles };
+    const combatContext = { player, enemies, poolManager, projectiles, audioManager };
     evolutionManager.update(deltaTime, combatContext);
 
     // Loot Update
@@ -401,6 +421,9 @@ function gameLoop(timestamp) {
                     txt.reset(txtX, txtY, "15", "#fff");
                     damageTexts.push(txt);
                 }
+
+                // Audio
+                audioManager.playHit();
 
                 UI.scoreEl.innerText = `Pontos: ${score} - Lv ${player.stats.level}`;
             }

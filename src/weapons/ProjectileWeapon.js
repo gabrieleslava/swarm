@@ -79,5 +79,10 @@ export class ProjectileWeapon extends WeaponBase {
                 context.projectiles.push(p);
             }
         }
+
+        // Play Sound (Once per burst)
+        if (context.audioManager) {
+            context.audioManager.playShoot();
+        }
     }
 }
