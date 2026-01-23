@@ -7,6 +7,8 @@ export class WaveManager {
 
         // Define Waves (Data-driven)
         // In a real app, this load come from a JSON file.
+        // Define Waves (Data-driven)
+        // In a real app, this load come from a JSON file.
         this.waves = [
             {
                 startTime: 0,
@@ -14,7 +16,7 @@ export class WaveManager {
                 spawnInterval: 250, // Much faster for density vs slow enemies
                 pattern: 'edge',
                 difficulty: 1,
-                enemyType: 'basic'
+                enemyType: 'monster_slime'
             },
             {
                 startTime: 60,
@@ -22,7 +24,7 @@ export class WaveManager {
                 spawnInterval: 150, // Very Fast
                 pattern: 'edge',
                 difficulty: 1.5,
-                enemyType: 'basic'
+                enemyType: 'monster_eye' // Fast eyes
             },
             {
                 startTime: 90,
@@ -30,7 +32,7 @@ export class WaveManager {
                 spawnInterval: 200, // Very fast
                 pattern: 'circle', // Surround
                 difficulty: 1.0, // Weaker but many
-                enemyType: 'basic'
+                enemyType: 'monster_skeleton'
             },
             {
                 startTime: 120, // 2 Minutes (Demo purposes, user asked for 15m but test is needed)
@@ -40,7 +42,7 @@ export class WaveManager {
                 // Let's create a dedicated wave type.
                 pattern: 'boss',
                 difficulty: 5.0,
-                enemyType: 'boss'
+                enemyType: 'boss_demon'
             }
         ];
     }
@@ -114,13 +116,13 @@ export class WaveManager {
 
         // Pattern Strategy
         if (wave.pattern === 'edge') {
-            this._spawnEdge(poolManager, enemies, gameWidth, gameHeight, difficulty);
+            this._spawnEdge(poolManager, enemies, gameWidth, gameHeight, difficulty, wave.enemyType);
         } else if (wave.pattern === 'circle') {
-            this._spawnCircle(poolManager, enemies, player, 10, difficulty); // Spawn batch of 10
+            this._spawnCircle(poolManager, enemies, player, 10, difficulty, wave.enemyType); // Spawn batch of 10
         }
     }
 
-    _spawnEdge(poolManager, enemies, width, height, difficulty) {
+    _spawnEdge(poolManager, enemies, width, height, difficulty, enemyType) {
         const e = poolManager.get('enemy');
         if (!e) return;
 
@@ -134,13 +136,13 @@ export class WaveManager {
             y = Math.random() < 0.5 ? -20 : height + 20;
         }
 
-        e.reset(difficulty); // specific stats
+        e.reset(difficulty, enemyType); // specific stats
         e.x = x;
         e.y = y;
         enemies.push(e);
     }
 
-    _spawnCircle(poolManager, enemies, player, count, difficulty) {
+    _spawnCircle(poolManager, enemies, player, count, difficulty, enemyType) {
         const radius = 400; // Distance from player (outside screen usually)
 
         for (let i = 0; i < count; i++) {
@@ -151,7 +153,7 @@ export class WaveManager {
             const x = player.x + Math.cos(angle) * radius;
             const y = player.y + Math.sin(angle) * radius;
 
-            e.reset(difficulty);
+            e.reset(difficulty, enemyType);
             e.x = x;
             e.y = y;
             enemies.push(e);

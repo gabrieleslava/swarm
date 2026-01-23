@@ -96,13 +96,15 @@ export const player = {
         // --- 1. Movement Physics ---
         const input = inputManager.getAxis();
         if (input.x !== 0 || input.y !== 0) {
-            this.x += input.x * this.stats.moveSpeed;
-            this.y += input.y * this.stats.moveSpeed;
-            this.isMoving = true;
+            this.velocity.x = input.x * this.stats.moveSpeed;
+            this.velocity.y = input.y * this.stats.moveSpeed;
 
-            // Flip sprite based on direction
-            // (Assuming we might add flip logic later, for now just move)
+            this.x += this.velocity.x;
+            this.y += this.velocity.y;
+            this.isMoving = true;
         } else {
+            this.velocity.x = 0;
+            this.velocity.y = 0;
             this.isMoving = false;
         }
 

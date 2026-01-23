@@ -8,32 +8,48 @@ export class Enemy {
         this.reset(difficultyMultiplier);
     }
 
-    reset(difficultyMultiplier = 1) {
+    reset(difficultyMultiplier = 1, enemyType = 'monster_slime') {
         // Position is now set by WaveManager immediately after reset
         // We initialize to 0 or keep previous to avoid undefined
-        // User request: Start slower, scale progressively.
-        // Base 0.3 (very slow start), + 0.1 per difficulty level
-        // Previous was 0.6
-        this.speed = 0.3 + (Math.random() * 0.1 * difficultyMultiplier);
-        this.markedForDeletion = false;
-        this.angle = 0;
-        this.active = true;
 
-        // Sprite Selection
-        const types = ['monster_slime', 'monster_eye', 'monster_skeleton'];
-        this.spriteType = types[Math.floor(Math.random() * types.length)];
-
-        // HP Scaling
-        // Base 20 + 10 * difficulty
-        this.maxHp = 20 + (10 * difficultyMultiplier);
-        this.hp = this.maxHp;
-        this.damage = 10 + (2 * difficultyMultiplier); // Damage to player
-
-        // Animation
+        this.spriteType = enemyType;
         this.frame = 0;
         this.maxFrames = 4;
         this.frameTimer = 0;
         this.frameInterval = 150;
+        this.markedForDeletion = false;
+        this.angle = 0;
+        this.active = true;
+
+        // Base Stats Config
+        const statsConfig = {
+            'monster_slime': {
+                baseHp: 20,
+                baseDamage: 10,
+                baseSpeed: 0.3,
+                speedVar: 0.1
+            },
+            'monster_eye': {
+                baseHp: 10,
+                baseDamage: 15,
+                baseSpeed: 0.5,
+                speedVar: 0.2
+            },
+            'monster_skeleton': {
+                baseHp: 40,
+                baseDamage: 20,
+                baseSpeed: 0.2, // Slow but tough
+                speedVar: 0.05
+            }
+        };
+
+        const config = statsConfig[enemyType] || statsConfig['monster_slime'];
+
+        // Apply scaling
+        this.maxHp = config.baseHp + (10 * difficultyMultiplier);
+        this.hp = this.maxHp;
+        this.damage = config.baseDamage + (2 * difficultyMultiplier);
+        this.speed = config.baseSpeed + (Math.random() * config.speedVar * difficultyMultiplier);
     }
 
     takeDamage(amount) {
