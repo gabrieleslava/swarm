@@ -1,4 +1,5 @@
 import { Enemy } from './enemy.js';
+import { ASSETS } from '../assets.js';
 
 export class Boss extends Enemy {
     constructor() {
@@ -22,16 +23,32 @@ export class Boss extends Enemy {
     draw(context) {
         if (!this.active) return;
 
-        // Body
-        context.fillStyle = this.spriteColor;
-        context.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+        const img = ASSETS['boss_demon'];
+        if (img && img.complete) {
+            context.save();
+            context.translate(this.x, this.y);
 
-        // Face
-        context.fillStyle = '#000';
-        context.font = '40px "VT323"';
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        context.fillText('👹', this.x, this.y);
+            // Flip if moving left
+            // Boss likely moves towards player, so use same angle logic
+            if (Math.cos(this.angle) < 0) {
+                context.scale(-1, 1);
+            }
+
+            // Draw Sprite
+            context.drawImage(img, -this.size / 2, -this.size / 2, this.size, this.size);
+            context.restore();
+        } else {
+            // Body
+            context.fillStyle = this.spriteColor;
+            context.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+
+            // Face
+            context.fillStyle = '#000';
+            context.font = '40px "VT323"';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText('👹', this.x, this.y);
+        }
 
         // HP Bar
         const hpPercent = this.hp / this.maxHp;

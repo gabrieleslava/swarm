@@ -160,12 +160,24 @@ export const player = {
             const row = 0;
             const renderedSize = 64;
 
+            ctx.save();
+            ctx.translate(this.x, this.y);
+
+            // Determine orientation
+            if (this.velocity.x < 0) this.facingLeft = true;
+            if (this.velocity.x > 0) this.facingLeft = false;
+
+            if (this.facingLeft) {
+                ctx.scale(-1, 1);
+            }
+
             ctx.drawImage(
                 img,
                 col * frameWidth, row * frameHeight, frameWidth, frameHeight,
-                this.x - renderedSize / 2, this.y - renderedSize / 2,
+                -renderedSize / 2, -renderedSize / 2, // Centered
                 renderedSize, renderedSize
             );
+            ctx.restore();
         } else {
             ctx.fillStyle = '#eb4034';
             ctx.fillRect(this.x - 16, this.y - 16, 32, 32);

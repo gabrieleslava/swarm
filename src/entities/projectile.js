@@ -13,7 +13,8 @@ export class Projectile {
         this.y = y;
         this.active = true;
         this.behavior = behavior;
-        this.timer = 0; // Usage by behaviors
+        this.timer = 0; // Usage by behaviors or TTL
+        this.maxLife = 2000; // 2 Seconds Life
 
         // Default Linear Physics
         if (angle !== undefined) {
@@ -39,14 +40,10 @@ export class Projectile {
         this.x += this.vx;
         this.y += this.vy;
 
-        // Screen bounds check (only for linear default really, but good safety)
-        // Behaviors might want to override this (e.g. Boomerang comes back), 
-        // so maybe move this into 'default' block if behavior is null?
-        // Let's keep it but allow behavior to disable 'markedForDeletion' if needed?
-        // For now, if behavior is set, we assume it manages lifetime or we put this check inside 'if (!handled)'?
-        // Let's leave bounds check generic but maybe relax it?
-
-        if (!this.behavior && (this.x < 0 || this.x > GAME_WIDTH || this.y < 0 || this.y > GAME_HEIGHT)) {
+        // Life Timer (TTL) - Replaces Bounds check which causes bugs in scrolling world
+        this.timer += deltaTime;
+        if (this.timer > this.maxLife) {
+            this.active = false;
             this.markedForDeletion = true;
         }
     }

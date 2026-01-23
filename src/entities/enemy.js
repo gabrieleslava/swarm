@@ -1,4 +1,5 @@
 import { GAME_WIDTH, GAME_HEIGHT } from '../constants.js';
+import { ASSETS } from '../assets.js';
 
 export class Enemy {
     constructor(difficultyMultiplier = 1) {
@@ -17,6 +18,10 @@ export class Enemy {
         this.markedForDeletion = false;
         this.angle = 0;
         this.active = true;
+
+        // Sprite Selection
+        const types = ['monster_slime', 'monster_eye', 'monster_skeleton'];
+        this.spriteType = types[Math.floor(Math.random() * types.length)];
 
         // HP Scaling
         // Base 20 + 10 * difficulty
@@ -52,6 +57,7 @@ export class Enemy {
         for (const other of otherEnemies) {
             if (other === this || !other.active) continue;
 
+            // Simple distance check
             const distSq = (this.x - other.x) ** 2 + (this.y - other.y) ** 2;
             if (distSq < separationRadius ** 2) {
                 sepX += (this.x - other.x);
@@ -72,10 +78,30 @@ export class Enemy {
 
     draw(context) {
         if (!this.active) return;
-        context.fillStyle = '#0f0'; // Matrix green
-        context.font = '24px "VT323"';
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        context.fillText('@', this.x, this.y);
+
+        const img = ASSETS[this.spriteType];
+        if (img && img.complete) {
+            context.save();
+            context.translate(this.x, this.y);
+
+            // Flip if moving left
+            const movingLeft = Math.cos(this.angle) < 0;
+            if (movingLeft) {
+                context.scale(-1, 1);
+            }
+
+            // Draw Sprite (Centered)
+            const size = 48; // Slightly larger for visuals
+            context.drawImage(img, -size / 2, -size / 2, size, size);
+
+            context.restore();
+        } else {
+            // Fallback
+            context.fillStyle = '#0f0'; // Matrix green
+            context.font = '24px "VT323"';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText('@', this.x, this.y);
+        }
     }
 }
